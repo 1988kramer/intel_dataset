@@ -46,7 +46,7 @@ class Measurement:
 			# increment the beam angle for the next point
 			beam_angle += beam_angle_increment
 
-		return points
+		return np.array(points)
 
 	# converts relative pose in x, y and phi to a transformation matrix
 	# params:

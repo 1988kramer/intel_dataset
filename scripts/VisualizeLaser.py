@@ -21,7 +21,7 @@ def animate(i):
 	plt.clf()
 	plt.xlim(xmax = 20, xmin = 0)
 	plt.ylim(ymax = 10, ymin = -10)
-	points = np.array(measurements[i].points)
+	points = measurements[i].points
 	plt.scatter(points[:,0],points[:,1],marker='.',s=1.0)
 
 

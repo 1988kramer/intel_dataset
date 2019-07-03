@@ -27,7 +27,7 @@ def animate(i):
 	global abs_pose
 
 	# transform laser measurements to global frame
-	in_points = np.array(measurements[i].points)
+	in_points = measurements[i].points
 	tf_points  = np.dot(abs_pose,np.transpose(in_points))
 	tf_points = np.transpose(tf_points)
 
