@@ -35,13 +35,16 @@ class Measurement:
 		points = []
 		for beam_length in ranges:
 
-			# convert polar to cartesian coordinates
-			point_x = beam_length * math.cos(beam_angle)
-			point_y = beam_length * math.sin(beam_angle)
+			# only convert points with nonzero range
+			if beam_length > 0.05:
 
-			# store x and y values in a numpy array and append it to the point list
-			point = np.array([point_x,point_y,1.0])
-			points.append(point)
+				# convert polar to cartesian coordinates
+				point_x = beam_length * math.cos(beam_angle)
+				point_y = beam_length * math.sin(beam_angle)
+
+				# store x and y values in a numpy array and append it to the point list
+				point = np.array([point_x,point_y,1.0])
+				points.append(point)
 
 			# increment the beam angle for the next point
 			beam_angle += beam_angle_increment
