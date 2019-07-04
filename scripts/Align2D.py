@@ -15,7 +15,7 @@ class Align2D:
 		self.target = target_points
 		self.init_T = initial_T
 		self.target_tree = KDTree(target_points[:,:2])
-		self.transform = self.AlignICP(10, 1.0e-2)
+		self.transform = self.AlignICP(100, 1.0e-4)
 
 	# uses the iterative closest point algorithm to find the
 	# transformation between the source and target point clouds
@@ -26,7 +26,7 @@ class Align2D:
 	#   min_delta_err: float, minimum change in alignment error
 	def AlignICP(self, max_iter, min_delta_err):
 
-		sum_sq_error = 1.0e6 # initialize error as large number
+		mean_sq_error = 1.0e6 # initialize error as large number
 		delta_err = 1.0e6    # change in error (used in stopping condition)
 		T = self.init_T
 		num_iter = 0         # number of iterations
@@ -35,11 +35,11 @@ class Align2D:
 		while delta_err > min_delta_err and num_iter < max_iter:
 
 			# find correspondences via nearest-neighbor search
-			matched_trg_pts = self.FindCorrespondences(tf_source)
+			matched_trg_pts,matched_src_pts,indices = self.FindCorrespondences(tf_source)
 
 			# find alingment between source and corresponding target points via SVD
 			# note: svd step doesn't use homogeneous points
-			new_T = self.AlignSVD(tf_source[:,:2], matched_trg_pts)
+			new_T = self.AlignSVD(matched_src_pts, matched_trg_pts)
 
 			# update transformation between point sets
 			T = np.dot(T,new_T)
@@ -47,23 +47,25 @@ class Align2D:
 			# apply transformation to the source points
 			tf_source = np.dot(self.source,T.T)
 
-			# find sum squared error between transformed source points and target points
-			pt_diffs = tf_source[:,2] - matched_trg_pts
+			# find mean squared error between transformed source points and target points
 			new_err = 0
-			for diff in pt_diffs:
-				new_err += np.dot(diff,diff.T)
+			for i in range(len(indices)):
+				if indices[i] != -1:
+					diff = tf_source[i,:2] - self.target[indices[i],:2]
+					new_err += np.dot(diff,diff.T)
+
+			new_err /= float(len(matched_trg_pts))
 
 			# update error and calculate delta error
-			delta_err = abs(sum_sq_error - new_err)
-			sum_sq_error = new_err
+			delta_err = abs(mean_sq_error - new_err)
+			mean_sq_error = new_err
 
-			max_iter += 1
+			num_iter += 1
 
 		return T
 
 	# finds nearest neighbors in the target point for all points
 	# in the set of source points
-	# currently allows for multiple association but may need to change this
 	# params:
 	#   src_pts: array of source points for which we will find neighbors
 	#            points are assumed to be homogeneous
@@ -72,16 +74,38 @@ class Align2D:
 	def FindCorrespondences(self,src_pts):
 
 		# get distances to nearest neighbors and indices of nearest neighbors
-		dist,indices = self.target_tree.query(src_pts[:,:2])
+		matched_src_pts = src_pts[:,:2]
+		dist,indices = self.target_tree.query(matched_src_pts)
 
+		# remove multiple associatons from index list
+		# only retain closest associations
+		unique = False
+		while not unique:
+			unique = True
+			for i in range(len(indices)):
+				if indices[i] == -1:
+					continue
+				for j in range(i+1,len(indices)):
+					if indices[i] == indices[j]:
+						if dist[i] < dist[j]:
+							indices[j] = -1
+						else:
+							indices[i] = -1
+							break
 		# build array of nearest neighbor target points
+		# and remove unmatched source points
 		point_list = []
+		src_idx = 0
 		for idx in indices:
-			point_list.append(self.target[idx,:])
+			if idx != -1:
+				point_list.append(self.target[idx,:])
+				src_idx += 1
+			else:
+				matched_src_pts = np.delete(matched_src_pts,src_idx,axis=0)
 
 		matched_pts = np.array(point_list)
 
-		return matched_pts[:,:2]
+		return matched_pts[:,:2],matched_src_pts,indices
 
 	# uses singular value decomposition to find the 
 	# transformation from the target to the source point cloud
@@ -104,7 +128,7 @@ class Align2D:
 		target_centered = target - trg_centroid
 
 		# get cross covariance matrix M
-		M = np.dot(source_centered,np.dot(target_centered))
+		M = np.dot(source_centered.T,target_centered)
 
 		# get singular value decomposition of the cross covariance matrix
 		U,W,V_t = np.linalg.svd(M)
