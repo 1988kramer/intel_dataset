@@ -32,7 +32,8 @@ def animate(i):
 	source_points = measurements[i+1].points
 
 	# initial guess at transform is identity
-	initial_T = np.identity(3) 
+	#initial_T = np.identity(3) 
+	initial_T = measurements[i+1].odometry
 
 	# find transform between point clouds via ICP
 	aligner = Align2D(source_points, target_points, initial_T)
@@ -45,7 +46,7 @@ def animate(i):
 	# align source points to target frame
 	source_points = np.dot(source_points, pose.T)
 
-	tf_axes = np.dot(abs_pose, axes_points)
+	tf_axes = np.dot(pose, axes_points)
 
 	plt.clf()
 	plt.xlim(xmax = 20, xmin = -20)
@@ -61,5 +62,5 @@ def animate(i):
 
 
 
-ani = animation.FuncAnimation(fig, animate, len(measurements)-1, interval=100)
+ani = animation.FuncAnimation(fig, animate, len(measurements)-1, interval=50)
 plt.show()
