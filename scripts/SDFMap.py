@@ -30,6 +30,7 @@ class SDFMap:
 		self.num_x_cells = int(size[0] / discretization)
 		self.num_y_cells = int(size[1] / discretization)
 		self.map = np.zeros((self.num_x_cells,self.num_y_cells))
+		self.priorities = 100 * np.ones((self.num_x_cells,self.num_y_cells))
 
 
 	# updates the map using the given laser scan
@@ -56,7 +57,26 @@ class SDFMap:
 
 			vertices = self.GetUpdateVertices(A, group[0])
 
-			updates = self.GetDistAndPriority(vertices, A, b, pose)
+			updates,new_priorities = self.GetDistAndPriority(vertices, A, b, pose, group[0])
+
+			# update vertices based on update priority
+			for update_idx in range(0,len(vertices)):
+
+				vertex = vertices[update_idx]
+				old_priority = self.priorities[vertex[0],vertex[1]]
+				new_priority = new_priorities[update_idx]
+				new_distance = updates[update_idx]
+
+				# if update has higher priority, discard the old measurement
+				if new_priority < old_priority:
+					self.map[vertex[0],vertex[1]] = new_distance
+					self.priorities[vertex[0],vertex[1]] = new_priority
+				# if update has same priority, average the measurements
+				elif new_priority == old_priority:
+					old_distance = self.map[vertex[0],vertex[1]]
+					mean_distance = (new_distance + old_distance) / 2.0
+					self.may[vertex[0],vertex[1]] = mean_distance
+				# if update has lower priority, discard the new measurement
 
 
 	# calculates the shortest distance to an obstacle and the update priority
@@ -66,10 +86,66 @@ class SDFMap:
 	# - A:        slope of the line fitted to the scan endpoints in the cell
 	# - b:        y intercept of the line fitted to the scan endpoints in the cell
 	# - pose:     pose of the robot
+	# - point:    a point in the group that triggered the update
 	# returns:
 	# - updates:    list of updated distances for each vertex
 	# - priorities: list of priorities for each update
 	def GetDistAndPriority(vertices, A, b, pose):
+
+		updates = []
+		priorities = []
+
+		for vertex in vertices:
+
+			# get orthogonal distance between vertex and line
+			b_1 = vertex[1] - (A * vertex[0])
+			y_diff = b_1 - b
+			x_diff = (b_1 - b) * (A / (A**2 + 1))
+			dist = math.sqrt(y_diff**2 + x_diff**2)
+
+			# change sign to negative if the vertex lies on the opposite side
+			# of the line from the robot's current pose
+
+			# get distance between robot pose and current vertex
+			pose_x = pose[0][2] / self.discretization
+			pose_y = pose[1][2] / self.discretization
+			cell_dist_x = vertex[0] - pose_x
+			cell_dist_y = vertex[1] - pose_y
+			cell_dist = math.sqrt(cell_dist_x**2 + cell_dist_y**2)
+
+			# get line from robot pose to current vertex
+			A_p = cell_dist_x / cell_dist_y
+			if cell_dist_x < 0:
+				A_p *= -1.0
+
+			b_p = pose_y - (A_p * pose_x)
+
+			# get point where line from robot pose to the current vertex intersects
+			# with the line fitted to the scan endpoints in the current cell
+			x_p = (b_p - b) / (A - A_p)
+			y_p = A_p * x_p + b_p
+
+			# distance from robot pose to fitted line along ray from robot pose
+			# to current vertex
+			line_dist = math.sqrt((pose_x - x_p)**2 + (pose_y - y_p)**2)
+
+			# if updated vertex is further away than the fitted line,
+			# distance update should be negative
+			if line_dist < cell_dist:
+				dist *= -1.0
+
+			updates.append(dist)
+
+			# get update priority as the min layers of vertices between the current
+			# vertex and the point that triggered the update
+			x_min,x_max,y_min,y_max = self.GetBoundingVertices(point)
+			
+			p = max((0,min((min((abs(x_min - vertex[0])),abs(x_max - vertex[0])),
+				min((abs(y_min - vertex[1])),(abs(y_max - vertex[1])))))))
+
+			priorities.append(p)
+
+		return updates, priorities
 
 
 
@@ -133,7 +209,7 @@ class SDFMap:
 	# - pose:   robot's current pose expressed as a transformation matrix
 	# returns:
 	# - A: the slope of the fitted line
-	# - b: the y intercept of the fitted line in meters
+	# - b: the y intercept of the fitted line in cells (not meters)
 	def LinearFit(self, points, pose):
 		if len(points) == 1:
 			# get perpendicular fit
@@ -147,6 +223,8 @@ class SDFMap:
 			output = odr.run()
 			b = output.beta[0]
 			A = output.beta[1]
+
+		b /= self.discretization
 
 		return A,b
 
