@@ -324,3 +324,76 @@ class SDFMap:
 		y_max = y_min + 1.0
 
 		return x_min,x_max,y_min,y_max
+
+	# returns the value at a particular point in the map as well as
+	# the gradient at that point, interpolated from the discretized
+	# values in the map
+	# params: 
+	# - point: 1x2 numpy array, a point in the global frame
+	# returns:
+	# - value: float, interpolated map value at the given point
+	# - grad:  1x2 numpy array, interpolated map gradients at the given point
+	def GetMapValueAndGradient(self, point):
+
+		# get bounding vertices of the given point
+		x_min,x_max,y_min,y_max = self.GetBoundingVertices(point)
+
+		# get distance between nearest vertices and the given point in x and y
+		point_x = point[0] / self.disc
+		point_y = point[1] / self.disc
+		d = np.array([point_x,point_y])
+		tx = point_x - x_min
+		ty = point_y - y_min
+
+		# get map values at the bounding vertices
+		m_points = np.zeros((4,2))
+		m_points[0,:] = [x_min + self.offsets[0], y_min + self.offsets[1]]
+		m_points[1,:] = [x_max + self.offsets[0], y_min + self.offsets[1]]
+		m_points[2,:] = [x_max + self.offsets[0], y_max + self.offsets[1]]
+		m_points[3,:] = [x_min + self.offsets[0], y_max + self.offsets[1]]
+
+		m = np.zeros(4)
+		for i in range(4):
+			m[i] = self.map[m_points[i,0],m_points[i,1]]
+
+		# get number of sign changes between adjacent cells
+		sign_changes = 0
+		paired = [False] * 4
+		pairs = []
+		for cell_idx in range(4):
+			if np.sign(m[cell_idx]) != np.sign(m[cell_idx-1]):
+				sign_changes += 1
+				if not paired[cell_idx] or paired[cell_idx-1]:
+					paired[cell_idx] = paired[cell_idx-1] = True
+					if m[cell_idx] > m[cell_idx - 1]:
+						pairs.append[(cell_idx,cell_idx-1)]
+					else:
+						pairs.append[(cell_idx-1,cell_idx)]
+
+		grad = np.zeros(2)
+		value = 0
+		if sign_changes == 0:
+			grad[0] = ty * (m[3] - m[2]) + (1.0 - ty) * (m[1] - m[0])
+			grad[1] = tx * (m[2] - m[0]) + (1.0 - tx) * (m[3] - m[1])
+			value = abs(ty*(m[3]*tx + m[2]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
+		else:
+			# separate values into pos/neg pairs and calculate p0 and p1
+			p = np.zeros((2,2))
+			for pair_idx in range(2):
+				m_x_plus = m_points[pairs[pair_idx][0],0]
+				m_y_plus = m_points[pairs[pair_idx][0],1]
+				m_x_minus = m_points[pairs[pair_idx][1],0]
+				m_y_minus = m_points[pairs[pair_idx][1],[1]]
+				m_plus = m[pairs[pair_idx][0]]
+				m_minus = m[pairs[pair_idx][1]]
+				p[pair_idx,0] = m_x_plus+(m_plus/(m_plus-m_minus))*(m_x_minus-m_x_plus)
+				p[pair_idx,1] = m_y_plus+(m_plus/(m_plus-m_minus))*(m_y_minus-m_y_plus)
+
+			# calculate q, the projection of the scan endpoint onto g(r)
+			q = p[0,:]+((d-p[0])*(p[1]-p[0])/(p[1]-p[0])**2)*(p[1]-p[0])
+			q = np.squeeze(q)
+			grad = q - d
+			value = np.linalg.norm(grad)
+
+		return value,grad
+
