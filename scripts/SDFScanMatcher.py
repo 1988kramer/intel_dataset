@@ -25,3 +25,16 @@ class SDFScanMatcher:
 		self.map = SDFMap(init_size, discretization, k)
 		self.pose = init_pose
 
+	# finds the best alignment between the inputted scan and the map
+	# adds the new scan to the map once an alignment is found
+	# params:
+	# - scan: the new scan's endpoints in the robot's frame of reference
+	#		  2D numpy array with one point per row 
+	#.        (expressed in homogeneous coordinates)
+	# - pose_delta_guess: an initial guess of the change in the robot's 
+	#.                    pose since the last scan
+	def AddScan(self, scan, pose_delta_guess=np.identity(3)):
+
+
+	#
+
