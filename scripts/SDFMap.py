@@ -140,7 +140,7 @@ class SDFMap:
 			if line_dist < cell_dist:
 				dist *= -1.0
 
-			updates.append(dist)
+			updates.append(dist * self.disc)
 
 			# get update priority as the min layers of vertices between the current
 			# vertex and the point that triggered the update
