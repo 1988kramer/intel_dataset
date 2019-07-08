@@ -9,8 +9,6 @@ SDFMap.py
     2D-SDF-SLAM: A signed distance function based SLAM frontend 
     for laser scanners. 1949-1955. 10.1109/IROS.2015.7353633. 
 
-To do: add function to expand map when scans fall outside the current map bounds
-
 '''
 
 import numpy as np
@@ -34,6 +32,7 @@ class SDFMap:
 		self.num_y_cells = int(size[1] / self.disc)
 		self.map = np.zeros((self.num_x_cells,self.num_y_cells))
 		self.priorities = 100.0 * np.ones((self.num_x_cells,self.num_y_cells))
+		self.offsets = np.zeros(2)
 
 
 	# updates the map using the given laser scan
@@ -67,6 +66,20 @@ class SDFMap:
 			for update_idx in range(0,len(vertices)):
 
 				vertex = vertices[update_idx]
+
+				# check if we need to expand the map before updating
+				if vertex[0] + self.offsets[0] < 0:
+					self.ExpandMap(0,-1,abs(vertex[0]+self.offsets[0]))
+				elif vertex[0] + self.offsets[0] >= self.map.shape[0]:
+					self.ExpandMap(0, 1, vertex[0] + self.offsets[0] - self.map.shape[0] + 1)
+				if vertex[1] + self.offsets[1] < 0:
+					self.ExpandMap(1,-1,abs(vertex[1]+self.offsets[1]))
+				elif vertex[1] + self.offsets[1] > self.map.shape[1]:
+					self.ExpandMap(1, 1, vertex[1] + self.offsets[1] - self.map.shape[1] + 1)
+
+				vertex[0] += self.offsets[0]
+				vertex[1] += self.offsets[1]
+
 				old_priority = self.priorities[vertex[0],vertex[1]]
 				new_priority = new_priorities[update_idx]
 				new_distance = updates[update_idx]
@@ -81,6 +94,22 @@ class SDFMap:
 					mean_distance = (new_distance + old_distance) / 2.0
 					self.map[vertex[0],vertex[1]] = mean_distance
 				# if update has lower priority, discard the new measurement
+
+	# Expands the map to fit if a an updated vertex falls outside the map
+	# params: 
+	# - axis:      int, axis along which to expand the map (0 for x axis, 1 for y axis)
+	# - direction: int, direction along which to expand
+	# - amount:    int, the number of cells that need to be added
+	def ExpandMap(self, axis, direction, amount):
+
+		for i in range(int(amount)):
+			if direction < 0:
+				self.map = np.insert(self.map,0,0,axis=axis)
+				self.priorities = np.insert(self.priorities,0,100,axis=axis)
+				self.offsets[axis] += 1
+			else:
+				self.map = np.insert(self.map,self.map.shape[axis],0,axis=axis)
+				self.priorities = np.insert(self.priorities,self.priorities.shape[axis],100,axis=axis)
 
 
 
@@ -120,7 +149,7 @@ class SDFMap:
 
 			# get line from robot pose to current vertex
 			A_p = 1000.0
-			if cell_dist_y != 0.0:
+			if cell_dist_x != 0.0:
 				A_p = cell_dist_y / cell_dist_x
 			if cell_dist_x < 0:
 				A_p *= -1.0
@@ -205,7 +234,7 @@ class SDFMap:
 				if Ax + b_upper < y or Ax + b_lower > y:
 					continue
 
-				indices.append((x,y))
+				indices.append(np.array([x,y]))
 
 		return indices
 
