@@ -25,12 +25,13 @@ class SDFMap:
 	# - discretization: float, the edge length of a single map cell in meters
 	# - k:              max radius in which to update vertices in meters
 	#
-	def __init__(self, size, discretization=0.5, k=1.0):
+	def __init__(self, size, discretization=0.5, k=2.0):
 		self.k = k
-		self.num_x_cells = int(size[0] / discretization)
-		self.num_y_cells = int(size[1] / discretization)
+		self.disc = discretization
+		self.num_x_cells = int(size[0] / self.disc)
+		self.num_y_cells = int(size[1] / self.disc)
 		self.map = np.zeros((self.num_x_cells,self.num_y_cells))
-		self.priorities = 100 * np.ones((self.num_x_cells,self.num_y_cells))
+		self.priorities = 100.0 * np.ones((self.num_x_cells,self.num_y_cells))
 
 
 	# updates the map using the given laser scan
@@ -59,6 +60,7 @@ class SDFMap:
 
 			updates,new_priorities = self.GetDistAndPriority(vertices, A, b, pose, group[0])
 
+
 			# update vertices based on update priority
 			for update_idx in range(0,len(vertices)):
 
@@ -75,8 +77,9 @@ class SDFMap:
 				elif new_priority == old_priority:
 					old_distance = self.map[vertex[0],vertex[1]]
 					mean_distance = (new_distance + old_distance) / 2.0
-					self.may[vertex[0],vertex[1]] = mean_distance
+					self.map[vertex[0],vertex[1]] = mean_distance
 				# if update has lower priority, discard the new measurement
+
 
 
 	# calculates the shortest distance to an obstacle and the update priority
@@ -90,7 +93,7 @@ class SDFMap:
 	# returns:
 	# - updates:    list of updated distances for each vertex
 	# - priorities: list of priorities for each update
-	def GetDistAndPriority(vertices, A, b, pose):
+	def GetDistAndPriority(self, vertices, A, b, pose, point):
 
 		updates = []
 		priorities = []
@@ -99,7 +102,7 @@ class SDFMap:
 
 			# get orthogonal distance between vertex and line
 			b_1 = vertex[1] - (A * vertex[0])
-			y_diff = b_1 - b
+			y_diff = (b - b_1) * (1 - (A**2/(A**2+1)))
 			x_diff = (b_1 - b) * (A / (A**2 + 1))
 			dist = math.sqrt(y_diff**2 + x_diff**2)
 
@@ -107,14 +110,16 @@ class SDFMap:
 			# of the line from the robot's current pose
 
 			# get distance between robot pose and current vertex
-			pose_x = pose[0][2] / self.discretization
-			pose_y = pose[1][2] / self.discretization
+			pose_x = pose[0][2] / self.disc
+			pose_y = pose[1][2] / self.disc
 			cell_dist_x = vertex[0] - pose_x
 			cell_dist_y = vertex[1] - pose_y
 			cell_dist = math.sqrt(cell_dist_x**2 + cell_dist_y**2)
 
 			# get line from robot pose to current vertex
-			A_p = cell_dist_x / cell_dist_y
+			A_p = 1000.0
+			if cell_dist_y != 0.0:
+				A_p = cell_dist_y / cell_dist_x
 			if cell_dist_x < 0:
 				A_p *= -1.0
 
@@ -129,6 +134,7 @@ class SDFMap:
 			# to current vertex
 			line_dist = math.sqrt((pose_x - x_p)**2 + (pose_y - y_p)**2)
 
+			
 			# if updated vertex is further away than the fitted line,
 			# distance update should be negative
 			if line_dist < cell_dist:
@@ -140,8 +146,8 @@ class SDFMap:
 			# vertex and the point that triggered the update
 			x_min,x_max,y_min,y_max = self.GetBoundingVertices(point)
 			
-			p = max((0,min((min((abs(x_min - vertex[0])),abs(x_max - vertex[0])),
-				min((abs(y_min - vertex[1])),(abs(y_max - vertex[1])))))))
+			p = max((min((abs(x_min - vertex[0])),abs(x_max - vertex[0])),
+				min((abs(y_min - vertex[1])),(abs(y_max - vertex[1])))))
 
 			priorities.append(p)
 
@@ -164,30 +170,31 @@ class SDFMap:
 		y_c = (y_max + y_min) / 2.0
 
 		# get lines bounding the cells to update
-		A_prime = -1.0 / A # slope of both bounding lines
+		A_prime = -1.0 * (1.0 / A) # slope of both bounding lines
 		b_lower = 0.0 # y intercept of lower line in cells (not meters)
 		b_upper = 0.0 # y intercept of upper line in cells (not meters)
 		if A_prime < 0:
-			b_lower = y_min - (A_prime * x_max)
-			b_upper = y_max - (A_prime * x_min)
-		else:
 			b_lower = y_min - (A_prime * x_min)
 			b_upper = y_max - (A_prime * x_max)
+		else:
+			b_lower = y_min - (A_prime * x_max)
+			b_upper = y_max - (A_prime * x_min)
 
 		# search nearby vertices and create list of vertices to update
 		# assumes updated cells never go off the edge of the map
 		# need to make function to expand map in this case
 		indices = []
-		k_cells = int(self.k / self.discretization)
-		x_range_min = int(x_c - k_cells)
-		x_range_max = int(x_c + k_cells)
-		y_range_min = int(y_c - k_cells)
-		y_range_max = int(y_c + k_cells)
+		k_cells = int(self.k / self.disc)
+		x_range_min = int(math.floor(x_c - k_cells))
+		x_range_max = int(math.ceil(x_c + k_cells))
+		y_range_min = int(math.floor(y_c - k_cells))
+		y_range_max = int(math.ceil(y_c + k_cells))
 		for x in range(x_range_min, x_range_max):
 			for y in range(y_range_min, y_range_max):
 
 				# rule out vertices based on distance to cell center
 				dist = math.sqrt((x - x_c)**2 + (y - y_c)**2)
+
 				if dist >= k_cells:
 					continue
 
@@ -219,12 +226,12 @@ class SDFMap:
 			# get fit from orthogonal regression (thanks scipy!)
 			points = np.array(points)
 			data = scipy.odr.RealData(points[:,0],points[:,1])
-			odr = ODR(data, scipy.odr.polynomial(1))
+			odr = scipy.odr.ODR(data, scipy.odr.polynomial(1))
 			output = odr.run()
 			b = output.beta[0]
 			A = output.beta[1]
 
-		b /= self.discretization
+		b /= self.disc
 
 		return A,b
 
@@ -249,12 +256,12 @@ class SDFMap:
 			same_cell = True
 			cur_group = [cur_point]
 			point_idx += 1
-			while same_cell and point_idx < len(global_scan):
+			while same_cell and point_idx < len(points):
 				
 				next_point = points[point_idx]
 
-				next_x = next_point[0] / self.discretization
-				next_y = next_point[1] / self.discretization
+				next_x = next_point[0] / self.disc
+				next_y = next_point[1] / self.disc
 
 				if (next_x <= x_max and next_x > x_min and 
 					next_y <= y_max and next_y > y_min):
@@ -280,9 +287,9 @@ class SDFMap:
 	def GetBoundingVertices(self, point):
 
 		# find four grid vertices that bound the current point
-		x_min = math.floor(point[0] / self.discretization)
-		x_max = x_min_idx + 1.0
-		y_min = math.floor(point[1] / self.discretization)
-		y_max = y_min_idx + 1.0
+		x_min = math.floor(point[0] / self.disc)
+		x_max = x_min + 1.0
+		y_min = math.floor(point[1] / self.disc)
+		y_max = y_min + 1.0
 
 		return x_min,x_max,y_min,y_max
