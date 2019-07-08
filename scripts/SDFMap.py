@@ -390,7 +390,7 @@ class SDFMap:
 				p[pair_idx,1] = m_y_plus+(m_plus/(m_plus-m_minus))*(m_y_minus-m_y_plus)
 
 			# calculate q, the projection of the scan endpoint onto g(r)
-			q = p[0,:]+((d-p[0])*(p[1]-p[0])/(p[1]-p[0])**2)*(p[1]-p[0])
+			q = p[0,:]+((d-p[0,:])*(p[1,:]-p[0,:])/(p[1,:]-p[0,:])**2)*(p[1,:]-p[0,:])
 			q = np.squeeze(q)
 			grad = q - d
 			value = np.linalg.norm(grad)
