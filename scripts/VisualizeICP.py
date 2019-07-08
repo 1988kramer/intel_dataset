@@ -32,8 +32,8 @@ def animate(i):
 	source_points = measurements[i+1].points
 
 	# initial guess at transform is identity
-	#initial_T = np.identity(3) 
-	initial_T = measurements[i+1].odometry
+	initial_T = np.identity(3) 
+	#initial_T = measurements[i+1].odometry
 
 	# find transform between point clouds via ICP
 	aligner = Align2D(source_points, target_points, initial_T)
@@ -49,8 +49,8 @@ def animate(i):
 	tf_axes = np.dot(pose, axes_points)
 
 	plt.clf()
-	plt.xlim(xmax = 20, xmin = -20)
-	plt.ylim(ymax = 20, ymin = -20)
+	plt.xlim(xmax = 25, xmin = -5)
+	plt.ylim(ymax = 10, ymin = -20)
 
 	# plot robot pose
 	plt.plot(tf_axes[0,:2],tf_axes[1,:2],c='r')
@@ -62,5 +62,5 @@ def animate(i):
 
 
 
-ani = animation.FuncAnimation(fig, animate, len(measurements)-1, interval=50)
+ani = animation.FuncAnimation(fig, animate, len(measurements)-1, interval=1)
 plt.show()
