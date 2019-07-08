@@ -17,14 +17,12 @@ args = parser.parse_args()
 loader = DataLoader(args.laser_file, args.odometry_file)
 measurements = loader.measurements
 
-map = SDFMap((25,20))
+map = SDFMap((10,10),discretization=0.25)
 
 fig = plt.figure()
 
 
 pose = np.identity(3)
-pose[1][2] = 10.01
-pose[0][2] = 5.01
 
 def animate(i):
 	global pose
