@@ -9,6 +9,8 @@ SDFMap.py
     2D-SDF-SLAM: A signed distance function based SLAM frontend 
     for laser scanners. 1949-1955. 10.1109/IROS.2015.7353633. 
 
+To do: add function to expand map when scans fall outside the current map bounds
+
 '''
 
 import numpy as np
