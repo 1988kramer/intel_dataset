@@ -80,14 +80,16 @@ class SDFScanMatcher:
 	# - r:    numpy array, column vector of map residuals for each scan point
 	# - J:    numpy array, stacked jacobians for each scan point, 1 per row
 	def GetResidualAndJacobian(self, scan, pose):
+
 		# transform points to global frame
-		gf_scan = np.dot(scan,next_pose.T)
+		gf_scan = np.dot(scan,pose.T)
 
 		# rearrange the rotation matrix to get its derivative
-		dR = np.array([[next_pose[0,1], -next_pose[0,0]],[next_pose[0,0],next_pose[0,1]]])
+		dR = np.array([[pose[0,1], -pose[0,0]],
+					   [pose[0,0],  pose[0,1]]])
 
 		# assemble measurement and jacobian matrices 
-		r = np.zeros(scan.shape[0],1)
+		r = np.zeros((scan.shape[0],1))
 		J = np.zeros((scan.shape[0],3))
 		partials = []
 		for scan_idx in range(scan.shape[0]):
@@ -97,7 +99,8 @@ class SDFScanMatcher:
 			r[scan_idx,0] = res
 
 			# get the partial derivative w.r.t. pose
-			partial = np.concatenate((np.identity(2),np.dot(dR,gf_scan[scan_idx,:2].T)),axis=1)
+			rot_part = np.dot(dR,np.expand_dims(gf_scan[scan_idx,:2],0).T)
+			partial = np.concatenate((np.identity(2),rot_part),axis=1)
 
 			# get the map jacobian w.r.t pose
 			J[scan_idx,:] = np.dot(grad,partial)
