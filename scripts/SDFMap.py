@@ -67,15 +67,7 @@ class SDFMap:
 
 				vertex = vertices[update_idx]
 
-				# check if we need to expand the map before updating
-				if vertex[0] + self.offsets[0] < 0:
-					self.ExpandMap(0,-1,abs(vertex[0]+self.offsets[0]))
-				elif vertex[0] + self.offsets[0] >= self.map.shape[0]:
-					self.ExpandMap(0, 1, vertex[0] + self.offsets[0] - self.map.shape[0] + 1)
-				if vertex[1] + self.offsets[1] < 0:
-					self.ExpandMap(1,-1,abs(vertex[1]+self.offsets[1]))
-				elif vertex[1] + self.offsets[1] > self.map.shape[1]:
-					self.ExpandMap(1, 1, vertex[1] + self.offsets[1] - self.map.shape[1] + 1)
+				self.ExpandMap(vertex)
 
 				vertex[0] += self.offsets[0]
 				vertex[1] += self.offsets[1]
@@ -95,21 +87,33 @@ class SDFMap:
 					self.map[vertex[0],vertex[1]] = mean_distance
 				# if update has lower priority, discard the new measurement
 
-	# Expands the map to fit if a an updated vertex falls outside the map
+	# Expands the map if necessary to fit the given point
 	# params: 
-	# - axis:      int, axis along which to expand the map (0 for x axis, 1 for y axis)
-	# - direction: int, direction along which to expand
-	# - amount:    int, the number of cells that need to be added
-	def ExpandMap(self, axis, direction, amount):
+	# - point:  np array, list, or tuple representing a point in the map space
+	def ExpandMap(self, point):
 
-		for i in range(int(amount)):
-			if direction < 0:
-				self.map = np.insert(self.map,0,0,axis=axis)
-				self.priorities = np.insert(self.priorities,0,100,axis=axis)
-				self.offsets[axis] += 1
-			else:
-				self.map = np.insert(self.map,self.map.shape[axis],0,axis=axis)
-				self.priorities = np.insert(self.priorities,self.priorities.shape[axis],100,axis=axis)
+		# check if we need to expand the map before updating
+		for axis in range(2):
+
+			direction = 0
+			amount = 0
+
+			if point[axis] + self.offsets[axis] < 0:
+				direction = -1
+				amount = abs(point[axis]+self.offsets[axis])
+			elif point[axis] + self.offsets[axis] >= self.map.shape[axis]:
+				direction = 1
+				amount = point[axis] + self.offsets[axis] - self.map.shape[axis] + 1
+
+
+			for i in range(int(amount)):
+				if direction < 0:
+					self.map = np.insert(self.map,0,0,axis=axis)
+					self.priorities = np.insert(self.priorities,0,100,axis=axis)
+					self.offsets[axis] += 1
+				else:
+					self.map = np.insert(self.map,self.map.shape[axis],0,axis=axis)
+					self.priorities = np.insert(self.priorities,self.priorities.shape[axis],100,axis=axis)
 
 
 
@@ -346,15 +350,16 @@ class SDFMap:
 		ty = point_y - y_min
 
 		# get map values at the bounding vertices
-		m_points = np.zeros((4,2))
-		m_points[0,:] = [x_min + self.offsets[0], y_min + self.offsets[1]]
-		m_points[1,:] = [x_max + self.offsets[0], y_min + self.offsets[1]]
-		m_points[2,:] = [x_max + self.offsets[0], y_max + self.offsets[1]]
-		m_points[3,:] = [x_min + self.offsets[0], y_max + self.offsets[1]]
+		m_points = []
+		m_points.append((int(x_min+self.offsets[0]), int(y_min+self.offsets[1])))
+		m_points.append((int(x_max+self.offsets[0]), int(y_min+self.offsets[1])))
+		m_points.append((int(x_max+self.offsets[0]), int(y_max+self.offsets[1])))
+		m_points.append((int(x_min+self.offsets[0]), int(y_max+self.offsets[1])))
 
 		m = np.zeros(4)
 		for i in range(4):
-			m[i] = self.map[m_points[i,0],m_points[i,1]]
+			self.ExpandMap(m_points[i])
+			m[i] = self.map[m_points[i][0],m_points[i][1]]
 
 		# get number of sign changes between adjacent cells
 		sign_changes = 0
