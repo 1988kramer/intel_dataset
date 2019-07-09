@@ -363,17 +363,21 @@ class SDFMap:
 
 		# get number of sign changes between adjacent cells
 		sign_changes = 0
-		paired = [False] * 4
+		paired = False
 		pairs = []
 		for cell_idx in range(4):
 			if np.sign(m[cell_idx]) != np.sign(m[cell_idx-1]):
 				sign_changes += 1
-				if not paired[cell_idx] or paired[cell_idx-1]:
-					paired[cell_idx] = paired[cell_idx-1] = True
+				if not paired:
+					paired = True
 					if m[cell_idx] > m[cell_idx - 1]:
-						pairs.append[(cell_idx,cell_idx-1)]
+						pairs.append((cell_idx,cell_idx-1))
 					else:
-						pairs.append[(cell_idx-1,cell_idx)]
+						pairs.append((cell_idx-1,cell_idx))
+					if m[cell_idx - 2] > m[cell_idx - 3]:
+						pairs.append((cell_idx - 2, cell_idx - 3))
+					else:
+						pairs.append((cell_idx - 3, cell_idx - 2))
 
 		grad = np.zeros(2)
 		value = 0
@@ -384,20 +388,24 @@ class SDFMap:
 		else:
 			# separate values into pos/neg pairs and calculate p0 and p1
 			p = np.zeros((2,2))
+			print(pairs)
 			for pair_idx in range(2):
-				m_x_plus = m_points[pairs[pair_idx][0],0]
-				m_y_plus = m_points[pairs[pair_idx][0],1]
-				m_x_minus = m_points[pairs[pair_idx][1],0]
-				m_y_minus = m_points[pairs[pair_idx][1],[1]]
+				m_x_plus = m_points[pairs[pair_idx][0]][0]
+				m_y_plus = m_points[pairs[pair_idx][0]][1]
+				m_x_minus = m_points[pairs[pair_idx][1]][0]
+				m_y_minus = m_points[pairs[pair_idx][1]][1]
 				m_plus = m[pairs[pair_idx][0]]
 				m_minus = m[pairs[pair_idx][1]]
+				print(str(m_plus) + ',' + str(m_minus))
 				p[pair_idx,0] = m_x_plus+(m_plus/(m_plus-m_minus))*(m_x_minus-m_x_plus)
 				p[pair_idx,1] = m_y_plus+(m_plus/(m_plus-m_minus))*(m_y_minus-m_y_plus)
+			print(p)
 
 			# calculate q, the projection of the scan endpoint onto g(r)
-			q = p[0,:]+((d-p[0,:])*(p[1,:]-p[0,:])/(p[1,:]-p[0,:])**2)*(p[1,:]-p[0,:])
+			q = p[0,:]+((d-p[0,:])*((p[1,:]-p[0,:])/(p[1,:]-p[0,:])**2))*(p[1,:]-p[0,:])
 			q = np.squeeze(q)
 			grad = q - d
+			print(grad)
 			value = np.linalg.norm(grad)
 
 		return value,grad
