@@ -1,6 +1,6 @@
 import numpy as np 
 from DataLoader import Measurement, DataLoader
-from SDFMap import SDFMap
+from SDFScanMatcher import SDFScanMatcher
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
