@@ -21,7 +21,7 @@ from SDFMap import SDFMap
 class SDFScanMatcher:
 
 	# initializes the SDF map and sets its initial size
-	def __init__(self, init_pose=np.identity(3), init_size=(20,20), discretization=0.5, k=2.0):
+	def __init__(self, init_pose=np.identity(3), init_size=(10,10), discretization=0.5, k=2.0):
 		self.map = SDFMap(init_size, discretization, k)
 		self.pose = init_pose
 
