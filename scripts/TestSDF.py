@@ -17,27 +17,25 @@ args = parser.parse_args()
 loader = DataLoader(args.laser_file, args.odometry_file)
 measurements = loader.measurements
 
-map = SDFMap((10,10),discretization=0.25)
+matcher = SDFScanMatcher()
 
 fig = plt.figure()
 
-
-pose = np.identity(3)
 
 def animate(i):
 	global pose
 
 	scan = measurements[i].points
 
-	map.UpdateMap(scan,pose)
+	matcher.AddScan(scan)
 
 	plt.clf()
-	plt.imshow(map.map, interpolation='none',vmin=-5.0,vmax=5.0)
+	plt.imshow(matcher.map.map, interpolation='none',vmin=-3.0,vmax=3.0)
 	plt.colorbar()
 
 
 
-ani = animation.FuncAnimation(fig, animate, 30, interval=1000)
+ani = animation.FuncAnimation(fig, animate, len(measurements), interval=1000)
 
 
 plt.show()
