@@ -58,7 +58,11 @@ class SDFScanMatcher:
 
 			next_pose = np.dot(next_pose, delta_P_mat)
 
+
 			# reevaluate the residual
+			print()
+			print(next_pose)
+			print()
 			vals,J = self.GetResidualAndJacobian(scan, next_pose)
 			new_err = np.linalg.norm(vals)**2
 			d_err = err - new_err
@@ -95,7 +99,11 @@ class SDFScanMatcher:
 		for scan_idx in range(scan.shape[0]):
 
 			# get map values and map gradients
+			#print(gf_scan[scan_idx,:])
 			res,grad = self.map.GetMapValueAndGradient(gf_scan[scan_idx,:2])
+			#print(res)
+			#print(grad)
+			#print()
 			r[scan_idx,0] = res
 
 			# get the partial derivative w.r.t. pose
