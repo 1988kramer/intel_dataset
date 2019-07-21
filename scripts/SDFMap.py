@@ -67,30 +67,30 @@ class SDFMap:
 
 				vertex = vertices[update_idx]
 
-				self.ExpandMap(vertex)
+				vertex[0]
+				vertex[1]
 
-				vertex[0] += self.offsets[0]
-				vertex[1] += self.offsets[1]
-
-				old_priority = self.priorities[vertex[0],vertex[1]]
+				old_priority = self.GetPriority(vertex[0],vertex[1])
 				new_priority = new_priorities[update_idx]
 				new_distance = updates[update_idx]
 
 				# if update has higher priority, discard the old measurement
 				if new_priority < old_priority:
-					self.map[vertex[0],vertex[1]] = new_distance
-					self.priorities[vertex[0],vertex[1]] = new_priority
+					self.SetMapValue(vertex[0],vertex[1],new_distance)
+					self.SetPriority(vertex[0],vertex[1],new_priority)
 				# if update has same priority, average the measurements
 				elif new_priority == old_priority:
 					old_distance = self.map[vertex[0],vertex[1]]
 					mean_distance = (new_distance + old_distance) / 2.0
-					self.map[vertex[0],vertex[1]] = mean_distance
+					self.SetMapValue(vertex[0],vertex[1],mean_distance)
 				# if update has lower priority, discard the new measurement
 
 	# Expands the map if necessary to fit the given point
 	# params: 
 	# - point:  np array, list, or tuple representing a point in the map space
-	def ExpandMap(self, point):
+	def ExpandMap(self, x, y):
+
+		point = np.array([x,y])
 
 		# check if we need to expand the map before updating
 		for axis in range(2):
@@ -98,15 +98,15 @@ class SDFMap:
 			direction = 0
 			amount = 0
 
-			if point[axis] + self.offsets[axis] < 0:
+			if point[axis] + self.offsets[axis] < 0.0:
 				direction = -1
-				amount = abs(point[axis]+self.offsets[axis])
-			elif point[axis] + self.offsets[axis] >= self.map.shape[axis]:
+				amount = int(abs(point[axis] + self.offsets[axis])) + 1
+			elif point[axis] + self.offsets[axis] >= float(self.map.shape[axis]):
 				direction = 1
-				amount = point[axis] + self.offsets[axis] - self.map.shape[axis] + 1
+				amount = int(point[axis] + self.offsets[axis]) - self.map.shape[axis] + 1
 
 
-			for i in range(int(amount)):
+			for i in range(amount):
 				if direction < 0:
 					self.map = np.insert(self.map,0,0,axis=axis)
 					self.priorities = np.insert(self.priorities,0,100,axis=axis)
@@ -200,6 +200,7 @@ class SDFMap:
 	def GetUpdateVertices(self, A, point):
 
 		# get vertices bounding the current cell
+		x,y = self.PointToMapCoordinates(point)
 		x_min,x_max,y_min,y_max = self.GetBoundingVertices(point)
 		x_c = (x_max + x_min) / 2.0
 		y_c = (y_max + y_min) / 2.0
@@ -295,8 +296,7 @@ class SDFMap:
 				
 				next_point = points[point_idx]
 
-				next_x = next_point[0] / self.disc
-				next_y = next_point[1] / self.disc
+				next_x,next_y = self.PointToMapCoordinates(next_point)
 
 				if (next_x <= x_max and next_x > x_min and 
 					next_y <= y_max and next_y > y_min):
@@ -322,12 +322,41 @@ class SDFMap:
 	def GetBoundingVertices(self, point):
 
 		# find four grid vertices that bound the current point
-		x_min = math.floor(point[0] / self.disc)
+		x,y = self.PointToMapCoordinates(point)
+		x_min = math.floor(x)
 		x_max = x_min + 1.0
-		y_min = math.floor(point[1] / self.disc)
+		y_min = math.floor(y)
 		y_max = y_min + 1.0
-
 		return x_min,x_max,y_min,y_max
+
+
+	def PointToMapCoordinates(self, point):
+		x = (point[0] / self.disc)
+		y = (point[1] / self.disc)
+		return x,y
+
+	def MapCoordinatesToPoint(self, x, y):
+		point = np.zeros(2)
+		point[0] = x * self.disc
+		point[1] = y * self.disc
+		return point
+
+	def GetMapValue(self, x, y):
+		self.ExpandMap(x,y)
+		return(self.map[int(x+self.offsets[0]),int(y+self.offsets[1])])
+
+	def SetMapValue(self, x, y, val):
+		self.ExpandMap(x,y)
+		self.map[int(x+self.offsets[0]),int(y+self.offsets[1])] = val
+
+	def GetPriority(self, x, y):
+		self.ExpandMap(x,y)
+		return(self.priorities[int(x+self.offsets[0]),int(y+self.offsets[1])])
+
+	def SetPriority(self, x, y, val):
+		self.ExpandMap(x,y)
+		self.priorities[int(x+self.offsets[0]),int(y+self.offsets[1])]
+
 
 	# returns the value at a particular point in the map as well as
 	# the gradient at that point, interpolated from the discretized
@@ -339,27 +368,29 @@ class SDFMap:
 	# - grad:  1x2 numpy array, interpolated map gradients at the given point
 	def GetMapValueAndGradient(self, point):
 
+		# get point in map coordinates
+		point_x,point_y = self.PointToMapCoordinates(point)
+		d = np.array([point_x,point_y])
+		print("x: {:f}   y: {:f}".format(point_x,point_y))
+
 		# get bounding vertices of the given point
 		x_min,x_max,y_min,y_max = self.GetBoundingVertices(point)
 
-		# get distance between nearest vertices and the given point in x and y
-		point_x = point[0] / self.disc
-		point_y = point[1] / self.disc
-		d = np.array([point_x,point_y])
+		#print("x-: {:f}  x+: {:f}   y-: {:f}   y+: {:f}".format(x_min,x_max,y_min,y_max))
+
 		tx = point_x - x_min
 		ty = point_y - y_min
 
 		# get map values at the bounding vertices
 		m_points = []
-		m_points.append((int(x_min+self.offsets[0]), int(y_min+self.offsets[1])))
-		m_points.append((int(x_max+self.offsets[0]), int(y_min+self.offsets[1])))
-		m_points.append((int(x_max+self.offsets[0]), int(y_max+self.offsets[1])))
-		m_points.append((int(x_min+self.offsets[0]), int(y_max+self.offsets[1])))
+		m_points.append((int(x_min), int(y_min)))
+		m_points.append((int(x_max), int(y_min)))
+		m_points.append((int(x_max), int(y_max)))
+		m_points.append((int(x_min), int(y_max)))
 
 		m = np.zeros(4)
 		for i in range(4):
-			self.ExpandMap(m_points[i])
-			m[i] = self.map[m_points[i][0],m_points[i][1]]
+			m[i] = self.GetMapValue(m_points[i][0],m_points[i][1])
 
 		# get number of sign changes between adjacent cells
 		sign_changes = 0
@@ -380,15 +411,17 @@ class SDFMap:
 						pairs.append((cell_idx - 3, cell_idx - 2))
 
 		grad = np.zeros(2)
-		value = 0
+		value = abs(ty*(m[3]*tx + m[2]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
+
 		if sign_changes == 0:
 			grad[0] = ty * (m[3] - m[2]) + (1.0 - ty) * (m[1] - m[0])
 			grad[1] = tx * (m[2] - m[0]) + (1.0 - tx) * (m[3] - m[1])
-			value = abs(ty*(m[3]*tx + m[2]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
 		else:
-			# separate values into pos/neg pairs and calculate p0 and p1
+			# separate values into pos/neg pairs and calculate p0 and p1,
+			# two points that define g(r), the zero line running between
+			# the four points
 			p = np.zeros((2,2))
-			print(pairs)
+			#print(pairs)
 			for pair_idx in range(2):
 				m_x_plus = m_points[pairs[pair_idx][0]][0]
 				m_y_plus = m_points[pairs[pair_idx][0]][1]
@@ -396,17 +429,27 @@ class SDFMap:
 				m_y_minus = m_points[pairs[pair_idx][1]][1]
 				m_plus = m[pairs[pair_idx][0]]
 				m_minus = m[pairs[pair_idx][1]]
-				print(str(m_plus) + ',' + str(m_minus))
+				print("plus: {:d},{:d}   minus: {:d},{:d}".format(m_x_plus,m_y_plus,m_x_minus,m_y_minus))
+				print("m plus: {:f}   m minus: {:f}".format(m_plus,m_minus))
+				#print(str(m_plus) + ',' + str(m_minus))
 				p[pair_idx,0] = m_x_plus+(m_plus/(m_plus-m_minus))*(m_x_minus-m_x_plus)
 				p[pair_idx,1] = m_y_plus+(m_plus/(m_plus-m_minus))*(m_y_minus-m_y_plus)
-			print(p)
+				print(p[pair_idx,:])
+			#print(p)
 
 			# calculate q, the projection of the scan endpoint onto g(r)
-			q = p[0,:]+((d-p[0,:])*((p[1,:]-p[0,:])/(p[1,:]-p[0,:])**2))*(p[1,:]-p[0,:])
+			A = np.array([[p[1,0]-p[0,0], p[1,1]-p[0,1]],
+						  [p[0,1]-p[1,1], p[1,0]-p[0,0]]])
+			b = np.array([[-d[0]*(p[1,0]-p[0,0]) - d[1]*(p[1,1]-p[0,1])],
+						  [-p[0,1]*(p[1,0]-p[0,0]) + p[0,0]*(p[1,1]-p[0,1])]])
+			q = np.dot(np.linalg.inv(A), -1.0*b)
 			q = np.squeeze(q)
-			grad = q - d
-			print(grad)
-			value = np.linalg.norm(grad)
+			dist = q - d
+			grad = value / dist
+			print("gradient: {:s}".format(grad))
+			#value = np.linalg.norm(grad)
+			print("x: {:f}   y: {:f}   residual: {:f}".format(d[0],d[1],value))
+
 
 		return value,grad
 
