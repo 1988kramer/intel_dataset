@@ -1,5 +1,6 @@
 import numpy as np 
 from DataLoader import Measurement, DataLoader
+from SDFMap import SDFMap
 from SDFScanMatcher import SDFScanMatcher
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
@@ -18,6 +19,7 @@ loader = DataLoader(args.laser_file, args.odometry_file)
 measurements = loader.measurements
 
 matcher = SDFScanMatcher()
+#sdf = SDFMap([10,10])
 
 fig = plt.figure()
 
@@ -27,6 +29,8 @@ def animate(i):
 
 	scan = measurements[i].points
 
+	#sdf.UpdateMap(scan,np.identity(3))
+
 	matcher.AddScan(scan)
 
 	plt.clf()
@@ -35,7 +39,7 @@ def animate(i):
 
 
 
-ani = animation.FuncAnimation(fig, animate, len(measurements), interval=1000)
+ani = animation.FuncAnimation(fig, animate, range(len(measurements)), interval=1000)
 
 
 plt.show()
