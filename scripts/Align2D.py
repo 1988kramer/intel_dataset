@@ -128,16 +128,16 @@ class Align2D:
 		target_centered = target - trg_centroid
 
 		# get cross covariance matrix M
-		M = np.dot(source_centered.T,target_centered)
+		M = np.dot(target_centered.T,source_centered)
 
 		# get singular value decomposition of the cross covariance matrix
 		U,W,V_t = np.linalg.svd(M)
 
 		# get rotation between the two point clouds
-		R = np.dot(V_t.T,U.T)
+		R = np.dot(U,V_t)
 
 		# get the translation (simply the difference between the point clound centroids)
-		t = trg_centroid - src_centroid
+		t = np.expand_dims(trg_centroid,0).T - np.dot(R,np.expand_dims(src_centroid,0).T)
 
 		# assemble translation and rotation into a transformation matrix
 		T = np.identity(3)
