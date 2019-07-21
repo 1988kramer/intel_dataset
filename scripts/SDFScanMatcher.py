@@ -61,6 +61,7 @@ class SDFScanMatcher:
 
 			# reevaluate the residual
 			print()
+			print("pose at iteration {:d}: ".format(num_iter))
 			print(next_pose)
 			print()
 			vals,J = self.GetResidualAndJacobian(scan, next_pose)
@@ -99,7 +100,6 @@ class SDFScanMatcher:
 		for scan_idx in range(scan.shape[0]):
 
 			# get map values and map gradients
-			#print(gf_scan[scan_idx,:])
 			res,grad = self.map.GetMapValueAndGradient(gf_scan[scan_idx,:2])
 			#print(res)
 			#print(grad)
