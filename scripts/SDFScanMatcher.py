@@ -35,7 +35,7 @@ class SDFScanMatcher:
 	#                     pose since the last scan
 	# - max_iter: int, maximum number of Gauss-Newton iterations to use
 	# - min_d_err: float, minimum change in error since last iteration to continue iterating
-	def AddScan(self, scan, pose_delta_guess=np.identity(3), max_iter=10, min_d_err=1.0e-4):
+	def AddScan(self, scan, pose_delta_guess=np.identity(3), max_iter=100, min_d_err=1.0e-4):
 		
 		d_err = 1.0e4
 		num_iter = 0
@@ -44,12 +44,16 @@ class SDFScanMatcher:
 
 		# get residuals and jacobian for initial guess
 		vals,J = self.GetResidualAndJacobian(scan, next_pose)
+		max_err = 1e-6
 		err = np.linalg.norm(vals)**2
 
-		while num_iter < max_iter and d_err > min_d_err:
+		while num_iter < max_iter and abs(d_err) > min_d_err and np.max(J) > 0.0:
+
+			#print(vals)
+			#print(J)
 
 			# calculate the Gauss-Newton pose update as x,y,gamma
-			delta_P = np.dot(np.dot(J.T,J),np.dot(J.T,vals))
+			delta_P = np.dot(np.linalg.inv(np.dot(J.T,J)),np.dot(J.T,vals))
 
 			# convert to transformation matrix
 			delta_P_mat = np.array([[math.cos(delta_P[2]), -math.sin(delta_P[2]), delta_P[0]],
@@ -60,14 +64,15 @@ class SDFScanMatcher:
 
 
 			# reevaluate the residual
-			print()
-			print("pose at iteration {:d}: ".format(num_iter))
-			print(next_pose)
-			print()
+			print("pose change at iteration {:d}: {:s}".format(num_iter,delta_P.T))
+			#print(next_pose)
+			
 			vals,J = self.GetResidualAndJacobian(scan, next_pose)
 			new_err = np.linalg.norm(vals)**2
 			d_err = err - new_err
 			err = new_err
+
+			print("error: {:f} \n".format(err))
 
 			num_iter += 1
 
@@ -107,8 +112,9 @@ class SDFScanMatcher:
 			r[scan_idx,0] = res
 
 			# get the partial derivative w.r.t. pose
-			rot_part = np.dot(dR,np.expand_dims(gf_scan[scan_idx,:2],0).T)
+			rot_part = np.dot(dR,np.expand_dims(scan[scan_idx,:2],0).T)
 			partial = np.concatenate((np.identity(2),rot_part),axis=1)
+			#print(partial)
 
 			# get the map jacobian w.r.t pose
 			J[scan_idx,:] = np.dot(grad,partial)
