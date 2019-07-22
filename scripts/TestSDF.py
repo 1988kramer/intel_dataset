@@ -39,7 +39,7 @@ def animate(i):
 
 
 
-ani = animation.FuncAnimation(fig, animate, range(len(measurements)), interval=1000)
+ani = animation.FuncAnimation(fig, animate, range(len(measurements)), interval=3000)
 
 
 plt.show()
