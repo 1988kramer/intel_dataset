@@ -30,7 +30,7 @@ class SDFMap:
 		self.disc = discretization
 		self.num_x_cells = int(size[0] / self.disc)
 		self.num_y_cells = int(size[1] / self.disc)
-		self.map = np.zeros((self.num_x_cells,self.num_y_cells))
+		self.map = np.ones((self.num_x_cells,self.num_y_cells))
 		self.priorities = 100.0 * np.ones((self.num_x_cells,self.num_y_cells))
 		self.offsets = np.zeros(2)
 
@@ -108,11 +108,11 @@ class SDFMap:
 
 			for i in range(amount):
 				if direction < 0:
-					self.map = np.insert(self.map,0,0,axis=axis)
+					self.map = np.insert(self.map,0,1,axis=axis)
 					self.priorities = np.insert(self.priorities,0,100,axis=axis)
 					self.offsets[axis] += 1
 				else:
-					self.map = np.insert(self.map,self.map.shape[axis],0,axis=axis)
+					self.map = np.insert(self.map,self.map.shape[axis],1,axis=axis)
 					self.priorities = np.insert(self.priorities,self.priorities.shape[axis],100,axis=axis)
 
 
@@ -393,9 +393,15 @@ class SDFMap:
 
 		# get number of sign changes between adjacent cells
 		sign_changes = 0
+		neg_count = 0
+		pos_count = 0
 		paired = False
 		pairs = []
 		for cell_idx in range(4):
+			if np.sign(m[cell_idx]) == -1.0:
+				neg_count += 1
+			else:
+				pos_count += 1
 			if np.sign(m[cell_idx]) != np.sign(m[cell_idx-1]):
 				sign_changes += 1
 				if not paired:
@@ -412,13 +418,14 @@ class SDFMap:
 		grad = np.zeros(2)
 		
 
-		if sign_changes == 0:
+		if neg_count != 2 or sign_changes != 2:
 			grad[0] = ty * (m[3] - m[2]) + (1.0 - ty) * (m[1] - m[0])
 			grad[1] = tx * (m[2] - m[0]) + (1.0 - tx) * (m[3] - m[1])
 			value = abs(ty*(m[3]*tx + m[2]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
-			print("no sign change")
+			if math.isnan(value):
+				print("no sign change")
 		else:
-			print("sign change")
+			
 			# separate values into pos/neg pairs and calculate p0 and p1,
 			# two points that define g(r), the zero line running between
 			# the four points
@@ -446,9 +453,13 @@ class SDFMap:
 			q = np.squeeze(q)
 			grad = q - d
 			value = np.linalg.norm(grad)
-
-		print("x: {:f}   y: {:f}   residual: {:f}".format(d[0],d[1],value))
-		print("gradient: {:s}".format(grad))
+			if math.isnan(value):
+				print("sign change")
+				print("x: {:f}   y: {:f}   residual: {:f}".format(d[0],d[1],value))
+				print("p0: {:s}   p1: {:s}".format(p[0,:],p[1,:]))
+				print("m+: {:f},{:f}: {:f}   m-: {:f},{:f}: {:f}".format(m_x_plus,m_y_plus,m_plus,m_x_minus,m_y_minus,m_minus))
+				print("gradient: {:s}".format(grad))
+				print("tx: {:f}   ty: {:f}".format(tx,ty))
 
 		return value,grad
 
