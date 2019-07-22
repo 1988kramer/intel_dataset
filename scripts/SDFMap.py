@@ -371,7 +371,6 @@ class SDFMap:
 		# get point in map coordinates
 		point_x,point_y = self.PointToMapCoordinates(point)
 		d = np.array([point_x,point_y])
-		print("x: {:f}   y: {:f}".format(point_x,point_y))
 
 		# get bounding vertices of the given point
 		x_min,x_max,y_min,y_max = self.GetBoundingVertices(point)
@@ -411,12 +410,15 @@ class SDFMap:
 						pairs.append((cell_idx - 3, cell_idx - 2))
 
 		grad = np.zeros(2)
-		value = abs(ty*(m[3]*tx + m[2]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
+		
 
 		if sign_changes == 0:
 			grad[0] = ty * (m[3] - m[2]) + (1.0 - ty) * (m[1] - m[0])
 			grad[1] = tx * (m[2] - m[0]) + (1.0 - tx) * (m[3] - m[1])
+			value = abs(ty*(m[3]*tx + m[2]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
+			print("no sign change")
 		else:
+			print("sign change")
 			# separate values into pos/neg pairs and calculate p0 and p1,
 			# two points that define g(r), the zero line running between
 			# the four points
@@ -429,12 +431,10 @@ class SDFMap:
 				m_y_minus = m_points[pairs[pair_idx][1]][1]
 				m_plus = m[pairs[pair_idx][0]]
 				m_minus = m[pairs[pair_idx][1]]
-				print("plus: {:d},{:d}   minus: {:d},{:d}".format(m_x_plus,m_y_plus,m_x_minus,m_y_minus))
-				print("m plus: {:f}   m minus: {:f}".format(m_plus,m_minus))
 				#print(str(m_plus) + ',' + str(m_minus))
 				p[pair_idx,0] = m_x_plus+(m_plus/(m_plus-m_minus))*(m_x_minus-m_x_plus)
 				p[pair_idx,1] = m_y_plus+(m_plus/(m_plus-m_minus))*(m_y_minus-m_y_plus)
-				print(p[pair_idx,:])
+
 			#print(p)
 
 			# calculate q, the projection of the scan endpoint onto g(r)
@@ -444,12 +444,11 @@ class SDFMap:
 						  [-p[0,1]*(p[1,0]-p[0,0]) + p[0,0]*(p[1,1]-p[0,1])]])
 			q = np.dot(np.linalg.inv(A), -1.0*b)
 			q = np.squeeze(q)
-			dist = q - d
-			grad = value / dist
-			print("gradient: {:s}".format(grad))
-			#value = np.linalg.norm(grad)
-			print("x: {:f}   y: {:f}   residual: {:f}".format(d[0],d[1],value))
+			grad = q - d
+			value = np.linalg.norm(grad)
 
+		print("x: {:f}   y: {:f}   residual: {:f}".format(d[0],d[1],value))
+		print("gradient: {:s}".format(grad))
 
 		return value,grad
 
