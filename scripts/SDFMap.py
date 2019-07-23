@@ -399,11 +399,11 @@ class SDFMap:
 
 		grad = np.zeros(2)
 		
-		value = abs(ty*(m[3]*tx + m[2]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
+		
 		if sign_changes != 2:
 			grad[0] = ty * (m[3] - m[2]) + (1.0 - ty) * (m[1] - m[0])
 			grad[1] = tx * (m[1] - m[2]) + (1.0 - tx) * (m[0] - m[3])
-			
+			value = abs(ty*(m[3]*tx + m[2]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
 
 			if math.isnan(value):
 				print("no sign change")
@@ -461,15 +461,14 @@ class SDFMap:
 				p[pair_idx,1] = m_y_plus+(m_plus/(m_plus-m_minus))*(m_y_minus-m_y_plus)
 
 			#print(p)
-
+			'''
 			v = np.array([p[1,1] - p[0,1], -p[1,0] + p[0,0]])
 			v = v / np.linalg.norm(v)
 
-			#dist = abs((p[1,0]-p[0,0])*(p[0,1]-d[1]) - (p[0,0]-d[0])*(p[1,1]-p[0,1]))/math.sqrt((p[1,0]-p[0,0])**2 + (p[1,1]-p[0,1])**2)
+			value = abs((p[1,0]-p[0,0])*(p[0,1]-d[1]) - (p[0,0]-d[0])*(p[1,1]-p[0,1]))/math.sqrt((p[1,0]-p[0,0])**2 + (p[1,1]-p[0,1])**2)
 
 			grad = -1.0 * v * value
-			#value = dist
-
+			'''
 			# calculate q, the projection of the scan endpoint onto g(r)
 			'''
 			q = p[0,:] + ((d-p[0,:])*(p[1,:]-p[0,:])/((p[1,:]-p[0,:])**2)) * (p[1,:] - p[0,:])
@@ -480,7 +479,7 @@ class SDFMap:
 			grad = q-d
 			value = np.linalg.norm(grad)
 			'''
-			'''
+			
 			A = np.array([[p[1,0]-p[0,0], p[1,1]-p[0,1]],
 						  [p[0,1]-p[1,1], p[1,0]-p[0,0]]])
 			b = np.array([[-d[0]*(p[1,0]-p[0,0]) - d[1]*(p[1,1]-p[0,1])],
@@ -488,7 +487,7 @@ class SDFMap:
 			q = np.dot(np.linalg.inv(A), -1.0*b)
 			q = np.squeeze(q)
 			grad = q - d
-			'''
+			value = np.linalg.norm(grad)
 			
 			if value == 0.0:
 				print("\nx: {:f}   y: {:f}   residual: {:f}".format(d[0],d[1],value))

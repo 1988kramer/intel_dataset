@@ -35,7 +35,7 @@ class SDFScanMatcher:
 	#                     pose since the last scan
 	# - max_iter: int, maximum number of Gauss-Newton iterations to use
 	# - min_d_err: float, minimum change in error since last iteration to continue iterating
-	def AddScan(self, scan, pose_delta_guess=np.identity(3), max_iter=100, min_d_err=1.0e-1):
+	def AddScan(self, scan, pose_delta_guess=np.identity(3), max_iter=100, min_d_err=1.0):
 		
 		d_err = 1.0e4
 		num_iter = 0
@@ -57,8 +57,8 @@ class SDFScanMatcher:
 			delta_P = np.dot(np.linalg.inv(np.dot(J.T,J)),np.dot(J.T,vals))
 
 			# convert to transformation matrix
-			delta_P_mat = np.array([[math.cos(delta_P[2]), -math.sin(delta_P[2]), delta_P[0]],
-								    [math.sin(delta_P[2]),  math.cos(delta_P[2]), delta_P[1]],
+			delta_P_mat = np.array([[math.cos(delta_P[2]), -math.sin(delta_P[2]), delta_P[0]*self.map.disc],
+								    [math.sin(delta_P[2]),  math.cos(delta_P[2]), delta_P[1]*self.map.disc],
 								    [                   0,                     0,           1]])
 
 			next_pose = np.dot(next_pose, delta_P_mat)
