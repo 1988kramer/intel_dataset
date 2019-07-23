@@ -25,7 +25,7 @@ class SDFMap:
 	# - discretization: float, the edge length of a single map cell in meters
 	# - k:              max radius in which to update vertices in meters
 	#
-	def __init__(self, size, discretization=0.5, k=2.0):
+	def __init__(self, size, discretization=0.5, k=1.0):
 		self.k = k
 		self.disc = discretization
 		self.num_x_cells = int(size[0] / self.disc)
@@ -66,9 +66,6 @@ class SDFMap:
 			for update_idx in range(0,len(vertices)):
 
 				vertex = vertices[update_idx]
-
-				vertex[0]
-				vertex[1]
 
 				old_priority = self.GetPriority(vertex[0],vertex[1])
 				new_priority = new_priorities[update_idx]
@@ -183,6 +180,7 @@ class SDFMap:
 			
 			p = max((min((abs(x_min - vertex[0])),abs(x_max - vertex[0])),
 				min((abs(y_min - vertex[1])),(abs(y_max - vertex[1])))))
+			#p = math.sqrt(min(abs(x_min - vertex[0]),abs(x_max - vertex[0]))**2 + min(abs(y_min - vertex[1]),abs(y_max - vertex[1]))**2)
 
 			priorities.append(p)
 
@@ -281,32 +279,28 @@ class SDFMap:
 
 		# iterate over all scan endpoints, finding groups that occupy the same map cell
 		point_groups = []
-		point_idx = 0
-		while point_idx < len(points):
+		grouped = [False] * len(points)
+
+		for point_idx in range(len(points)):
 
 			cur_point = points[point_idx]
 
 			x_min,x_max,y_min,y_max = self.GetBoundingVertices(cur_point)
 
-			# find all other scan endpoints that fall within the same cell
-			same_cell = True
-			cur_group = [cur_point]
-			point_idx += 1
-			while same_cell and point_idx < len(points):
+			if not grouped[point_idx]:
 				
-				next_point = points[point_idx]
+				cur_group = [cur_point]
+				grouped[point_idx] = True
+				
+				for next_idx in range(point_idx + 1, len(points)):
+					if not grouped[next_idx]:
+						next_point = points[next_idx]
+						if (next_point[0] >= x_min and next_point[0] < x_max
+							and next_point[1] >= y_min and next_point[1] < y_max):
+							cur_group.append(next_point)
+							grouped[next_idx] = True
 
-				next_x,next_y = self.PointToMapCoordinates(next_point)
-
-				if (next_x <= x_max and next_x > x_min and 
-					next_y <= y_max and next_y > y_min):
-					cur_group.append(next_point)
-				else:
-					same_cell = False
-
-				point_idx += 1
-
-			point_groups.append(cur_group)
+				point_groups.append(cur_group)
 
 		return point_groups
 
@@ -355,7 +349,7 @@ class SDFMap:
 
 	def SetPriority(self, x, y, val):
 		self.ExpandMap(x,y)
-		self.priorities[int(x+self.offsets[0]),int(y+self.offsets[1])]
+		self.priorities[int(x+self.offsets[0]),int(y+self.offsets[1])] = val
 
 
 	# returns the value at a particular point in the map as well as
@@ -375,8 +369,6 @@ class SDFMap:
 		# get bounding vertices of the given point
 		x_min,x_max,y_min,y_max = self.GetBoundingVertices(point)
 
-		#print("x-: {:f}  x+: {:f}   y-: {:f}   y+: {:f}".format(x_min,x_max,y_min,y_max))
-
 		tx = point_x - x_min
 		ty = point_y - y_min
 
@@ -395,8 +387,8 @@ class SDFMap:
 		sign_changes = 0
 		neg_count = 0
 		pos_count = 0
-		paired = False
-		pairs = []
+
+		# count number of sign changes and number of negatives and positives
 		for cell_idx in range(4):
 			if np.sign(m[cell_idx]) == -1.0:
 				neg_count += 1
@@ -404,27 +396,53 @@ class SDFMap:
 				pos_count += 1
 			if np.sign(m[cell_idx]) != np.sign(m[cell_idx-1]):
 				sign_changes += 1
-				if not paired:
-					paired = True
-					if m[cell_idx] > m[cell_idx - 1]:
-						pairs.append((cell_idx,cell_idx-1))
-					else:
-						pairs.append((cell_idx-1,cell_idx))
-					if m[cell_idx - 2] > m[cell_idx - 3]:
-						pairs.append((cell_idx - 2, cell_idx - 3))
-					else:
-						pairs.append((cell_idx - 3, cell_idx - 2))
 
 		grad = np.zeros(2)
 		
-
-		if neg_count != 2 or sign_changes != 2:
+		value = abs(ty*(m[3]*tx + m[2]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
+		if sign_changes != 2:
 			grad[0] = ty * (m[3] - m[2]) + (1.0 - ty) * (m[1] - m[0])
-			grad[1] = tx * (m[2] - m[0]) + (1.0 - tx) * (m[3] - m[1])
-			value = abs(ty*(m[3]*tx + m[2]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
+			grad[1] = tx * (m[1] - m[2]) + (1.0 - tx) * (m[0] - m[3])
+			
+
 			if math.isnan(value):
 				print("no sign change")
 		else:
+			num_pts = 4
+
+			# allocate cells to pairs
+			pairs = [[0,0],[0,0]]
+			if neg_count == 2: 
+				neg_idx = 0
+				pos_idx = 0
+				for m_idx in range(num_pts):
+					if np.sign(m[m_idx]) < 0:
+						pairs[neg_idx][1] = m_idx
+						neg_idx += 1
+					else:
+						pairs[pos_idx][0] = m_idx
+						pos_idx += 1
+				# check to make sure paired points are adjacent
+				if abs(pairs[0][0] - pairs[0][1]) != 1:
+					temp = pairs[0][1]
+					pairs[0][1] = pairs[1][1]
+					pairs[1][1] = temp
+			elif neg_count == 1: 
+				for m_idx in range(num_pts):
+					if np.sign(m[m_idx]) < 0:
+						pairs[0][1] = m_idx
+						pairs[1][1] = m_idx
+						pairs[0][0] = (m_idx + 1) % num_pts
+						pairs[1][0] = (m_idx - 1) % num_pts
+			else:
+				for m_idx in range(num_pts):
+					if np.sign(m[m_idx]) >= 0:
+						pairs[0][0] = m_idx
+						pairs[1][0] = m_idx
+						pairs[0][1] = (m_idx + 1) % num_pts
+						pairs[1][1] = (m_idx - 1) % num_pts
+
+
 			
 			# separate values into pos/neg pairs and calculate p0 and p1,
 			# two points that define g(r), the zero line running between
@@ -444,7 +462,25 @@ class SDFMap:
 
 			#print(p)
 
+			v = np.array([p[1,1] - p[0,1], -p[1,0] + p[0,0]])
+			v = v / np.linalg.norm(v)
+
+			#dist = abs((p[1,0]-p[0,0])*(p[0,1]-d[1]) - (p[0,0]-d[0])*(p[1,1]-p[0,1]))/math.sqrt((p[1,0]-p[0,0])**2 + (p[1,1]-p[0,1])**2)
+
+			grad = -1.0 * v * value
+			#value = dist
+
 			# calculate q, the projection of the scan endpoint onto g(r)
+			'''
+			q = p[0,:] + ((d-p[0,:])*(p[1,:]-p[0,:])/((p[1,:]-p[0,:])**2)) * (p[1,:] - p[0,:])
+
+			for i in range(2):
+				if math.isnan(q[i]):
+					q[i] = p[0,i]
+			grad = q-d
+			value = np.linalg.norm(grad)
+			'''
+			'''
 			A = np.array([[p[1,0]-p[0,0], p[1,1]-p[0,1]],
 						  [p[0,1]-p[1,1], p[1,0]-p[0,0]]])
 			b = np.array([[-d[0]*(p[1,0]-p[0,0]) - d[1]*(p[1,1]-p[0,1])],
@@ -452,13 +488,15 @@ class SDFMap:
 			q = np.dot(np.linalg.inv(A), -1.0*b)
 			q = np.squeeze(q)
 			grad = q - d
-			value = np.linalg.norm(grad)
-			if math.isnan(value):
-				print("sign change")
-				print("x: {:f}   y: {:f}   residual: {:f}".format(d[0],d[1],value))
+			'''
+			
+			if value == 0.0:
+				print("\nx: {:f}   y: {:f}   residual: {:f}".format(d[0],d[1],value))
 				print("p0: {:s}   p1: {:s}".format(p[0,:],p[1,:]))
 				print("m+: {:f},{:f}: {:f}   m-: {:f},{:f}: {:f}".format(m_x_plus,m_y_plus,m_plus,m_x_minus,m_y_minus,m_minus))
 				print("gradient: {:s}".format(grad))
+				#print("q: {:s}".format(q))
+				print("d: {:s}".format(d))
 				print("tx: {:f}   ty: {:f}".format(tx,ty))
 
 		return value,grad
