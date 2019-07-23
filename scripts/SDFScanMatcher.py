@@ -44,6 +44,7 @@ class SDFScanMatcher:
 
 		# get residuals and jacobian for initial guess
 		vals,J,grads = self.GetResidualAndJacobian(scan, next_pose)
+
 		max_err = 1e-6
 		err = np.linalg.norm(vals)**2
 
@@ -116,7 +117,6 @@ class SDFScanMatcher:
 			# get the partial derivative w.r.t. pose
 			rot_part = np.dot(dR,np.expand_dims(scan[scan_idx,:2],0).T)
 			partial = np.concatenate((np.identity(2),rot_part),axis=1)
-			#print(partial)
 
 			# get the map jacobian w.r.t pose
 			J[scan_idx,:] = np.dot(grad,partial)

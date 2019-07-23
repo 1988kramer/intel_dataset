@@ -17,12 +17,15 @@ args = parser.parse_args()
 
 loader = DataLoader(args.laser_file, args.odometry_file)
 measurements = loader.measurements
-disc = 0.5
+disc = 0.25
 matcher = SDFScanMatcher(discretization=disc)
 matcher.AddScan(measurements[0].points)
 #matcher.AddScan(measurements[1].points)
 res,J,grads = matcher.GetResidualAndJacobian(measurements[1].points,np.identity(3))
 #sdf = SDFMap([10,10])
+
+delta_P = np.dot(np.linalg.inv(np.dot(J.T,J)),np.dot(J.T,res))
+print(delta_P)
 
 fig = plt.figure()
 
