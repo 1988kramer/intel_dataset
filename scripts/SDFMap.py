@@ -25,7 +25,7 @@ class SDFMap:
 	# - discretization: float, the edge length of a single map cell in meters
 	# - k:              max radius in which to update vertices in meters
 	#
-	def __init__(self, size, discretization=0.5, k=1.0):
+	def __init__(self, size, discretization=0.5, k=3.0):
 		self.k = k
 		self.disc = discretization
 		self.num_x_cells = int(size[0] / self.disc)
@@ -399,11 +399,12 @@ class SDFMap:
 
 		grad = np.zeros(2)
 		
+		value = abs(ty*(m[2]*tx + m[3]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
 		
 		if sign_changes != 2:
 			grad[0] = ty * (m[3] - m[2]) + (1.0 - ty) * (m[1] - m[0])
 			grad[1] = tx * (m[1] - m[2]) + (1.0 - tx) * (m[0] - m[3])
-			value = abs(ty*(m[3]*tx + m[2]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
+			
 
 			if math.isnan(value):
 				print("no sign change")
@@ -465,9 +466,12 @@ class SDFMap:
 			v = np.array([p[1,1] - p[0,1], -p[1,0] + p[0,0]])
 			v = v / np.linalg.norm(v)
 
-			value = abs((p[1,0]-p[0,0])*(p[0,1]-d[1]) - (p[0,0]-d[0])*(p[1,1]-p[0,1]))/math.sqrt((p[1,0]-p[0,0])**2 + (p[1,1]-p[0,1])**2)
+			dist = abs((p[1,0]-p[0,0])*(p[0,1]-d[1]) - (p[0,0]-d[0])*(p[1,1]-p[0,1]))/math.sqrt((p[1,0]-p[0,0])**2 + (p[1,1]-p[0,1])**2)
 
-			grad = -1.0 * v * value
+			if dist > 0.0:
+				grad = v * value / dist
+			else:
+				grad = np.array([0,0])
 			'''
 			# calculate q, the projection of the scan endpoint onto g(r)
 			'''
@@ -487,13 +491,14 @@ class SDFMap:
 			q = np.dot(np.linalg.inv(A), -1.0*b)
 			q = np.squeeze(q)
 			grad = q - d
-			value = np.linalg.norm(grad)
+			#value = np.linalg.norm(grad)
 			
-			if value == 0.0:
+			if np.linalg.norm(grad) > 2.0:
 				print("\nx: {:f}   y: {:f}   residual: {:f}".format(d[0],d[1],value))
 				print("p0: {:s}   p1: {:s}".format(p[0,:],p[1,:]))
 				print("m+: {:f},{:f}: {:f}   m-: {:f},{:f}: {:f}".format(m_x_plus,m_y_plus,m_plus,m_x_minus,m_y_minus,m_minus))
 				print("gradient: {:s}".format(grad))
+				print("distance: {:f}".format(value))
 				#print("q: {:s}".format(q))
 				print("d: {:s}".format(d))
 				print("tx: {:f}   ty: {:f}".format(tx,ty))
