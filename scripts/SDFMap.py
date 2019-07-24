@@ -76,12 +76,11 @@ class SDFMap:
 					self.SetMapValue(vertex[0],vertex[1],new_distance)
 					self.SetPriority(vertex[0],vertex[1],new_priority)
 				# if update has same priority, average the measurements
-				'''
 				elif new_priority == old_priority:
-					old_distance = self.map[vertex[0],vertex[1]]
+					old_distance = self.GetMapValue(vertex[0],vertex[1])
 					mean_distance = (new_distance + old_distance) / 2.0
 					self.SetMapValue(vertex[0],vertex[1],mean_distance)
-					'''
+					
 				# if update has lower priority, discard the new measurement
 
 	# Expands the map if necessary to fit the given point
