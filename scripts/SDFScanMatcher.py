@@ -45,7 +45,7 @@ class SDFScanMatcher:
 		# get residuals and jacobian for initial guess
 		vals,J,grads = self.GetResidualAndJacobian(scan, est_pose)
 
-		W = self.GetCauchyWeights(vals,0.05)
+		W = self.GetCauchyWeights(scan,vals,0.05)
 
 		max_err = 1e-6
 		#err = np.linalg.norm(vals**2)
@@ -59,7 +59,7 @@ class SDFScanMatcher:
 
 			# calculate pose update using Gauss-Newton with the Cauchy M-Estimator
 			# still need to tune the estimator width parameter
-			W = self.GetCauchyWeights(vals, 0.05)
+			W = self.GetCauchyWeights(scan, vals, 0.05)
 
 			#print('residual mean: {:f}   std dev: {:f}'.format(np.mean(vals),np.std(vals)))
 			J_t_W = np.dot(J.T,W)
@@ -101,11 +101,24 @@ class SDFScanMatcher:
 		self.pose = np.dot(self.pose,est_pose)
 		self.map.UpdateMap(scan,self.pose)
 
-	def GetCauchyWeights(self, residuals, a):
+	def GetCauchyWeights(self, scan, residuals, a):
+		
 		W = np.zeros((residuals.shape[0],residuals.shape[0]))
 		c = 1.0 / a**2
 		for i in range(residuals.shape[0]):
 			W[i,i] = 1.0 / (1.0 + residuals[i,0]**2 * c)
+
+		min_range = 1.0e4
+		max_range = 0
+		for endpoint in scan:
+			r = np.linalg.norm(endpoint[:2])
+			if r < min_range: min_range = r
+			if r > max_range: max_range = r
+
+		for i in range(len(scan)):
+			r = np.linalg.norm(scan[i][:2])
+			norm_r = ((r - min_range) / (max_range - min_range)) + 1.0
+			W[i,i] = W[i,i] / norm_r
 		return W
 
 	# returns residual and jacobian for a given scan alignment
