@@ -393,11 +393,15 @@ class SDFMap:
 
 		# count number of sign changes and number of negatives and positives
 		for cell_idx in range(4):
-			if np.sign(m[cell_idx]) == -1.0:
+			cur_sign = np.sign(m[cell_idx])
+			if cur_sign == 0.0: cur_sign = 1.0
+			last_sign = np.sign(m[cell_idx-1])
+			if last_sign == 0.0: last_sign = 1.0
+			if cur_sign == -1.0:
 				neg_count += 1
 			else:
 				pos_count += 1
-			if np.sign(m[cell_idx]) != np.sign(m[cell_idx-1]):
+			if cur_sign != last_sign:
 				sign_changes += 1
 
 		grad = np.zeros(2)
@@ -461,6 +465,9 @@ class SDFMap:
 				m_plus = m[pairs[pair_idx][0]]
 				m_minus = m[pairs[pair_idx][1]]
 				#print(str(m_plus) + ',' + str(m_minus))
+				if m_plus - m_minus == 0:
+					print('zero encountered, m+: {:f},  m-: {:f}'.format(m_plus,m_minus))
+					print('num neg: {:d}   sign changes: {:d}\n'.format(neg_count,sign_changes))
 				p[pair_idx,0] = m_x_plus+(m_plus/(m_plus-m_minus))*(m_x_minus-m_x_plus)
 				p[pair_idx,1] = m_y_plus+(m_plus/(m_plus-m_minus))*(m_y_minus-m_y_plus)
 
