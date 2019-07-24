@@ -421,12 +421,14 @@ class SDFMap:
 
 		grad = np.zeros(2)
 		
-		value = abs(ty*(m[2]*tx + m[3]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx)))
+		value = ty*(m[2]*tx + m[3]*(1-tx)) + (1-ty)*(m[1]*tx + m[0]*(1-tx))
+		sign = np.sign(value)
+		value = abs(value)
 		
 		if sign_changes != 2:
 			grad[0] = ty * (m[3] - m[2]) + (1.0 - ty) * (m[1] - m[0])
 			grad[1] = tx * (m[1] - m[2]) + (1.0 - tx) * (m[0] - m[3])
-			
+			grad = grad * sign
 
 			if math.isnan(value):
 				print("no sign change")

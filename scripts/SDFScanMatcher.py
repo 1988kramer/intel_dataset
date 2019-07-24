@@ -40,10 +40,10 @@ class SDFScanMatcher:
 		d_err = 1.0e4
 		num_iter = 0
 
-		next_pose = np.dot(self.pose,pose_delta_guess)
+		est_pose = np.dot(self.pose,pose_delta_guess)
 
 		# get residuals and jacobian for initial guess
-		vals,J,grads = self.GetResidualAndJacobian(scan, next_pose)
+		vals,J,grads = self.GetResidualAndJacobian(scan, est_pose)
 
 		W = self.GetCauchyWeights(vals,0.05)
 
@@ -73,17 +73,24 @@ class SDFScanMatcher:
 								    [math.sin(delta_P[2]),  math.cos(delta_P[2]), delta_P[1]*self.map.disc],
 								    [                   0,                     0,           1]])
 
-			next_pose = np.dot(next_pose, delta_P_mat)
+			new_pose = np.dot(est_pose, delta_P_mat)
 
 
 			# reevaluate the residual
-			print("pose at iteration {:d}: \n{:s}".format(num_iter,next_pose))
-			#print(next_pose)
+			print("pose at iteration {:d}: \n{:s}".format(num_iter,est_pose))
 			
-			vals,J,grads = self.GetResidualAndJacobian(scan, next_pose)
+			vals,J,grads = self.GetResidualAndJacobian(scan, new_pose)
 			#new_err = np.linalg.norm(vals**2)
 			new_err = np.dot(np.dot(vals.T,W),vals)
 			d_err = err - new_err[0,0]
+
+			# stop iterating if new estimate increases error
+			#if d_err < 0:
+			#	print('stopping solver with error of {:f}'.format(new_err[0,0]))
+			#	break
+			#else:
+			est_pose = new_pose
+
 			err = new_err[0,0]
 
 			print("error: {:f} \n".format(err))
@@ -91,7 +98,7 @@ class SDFScanMatcher:
 			num_iter += 1
 
 		# update the pose and map
-		self.pose = np.dot(self.pose,next_pose)
+		self.pose = np.dot(self.pose,est_pose)
 		self.map.UpdateMap(scan,self.pose)
 
 	def GetCauchyWeights(self, residuals, a):
