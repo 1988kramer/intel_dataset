@@ -45,16 +45,21 @@ class SDFScanMatcher:
 		# get residuals and jacobian for initial guess
 		vals,J,grads = self.GetResidualAndJacobian(scan, next_pose)
 
-		max_err = 1e-6
-		err = np.linalg.norm(vals**2)
+		W = self.GetCauchyWeights(vals,0.05)
 
-		print("initial error: {:f}".format(err))
+		max_err = 1e-6
+		#err = np.linalg.norm(vals**2)
+		err = np.dot(np.dot(vals.T,W),vals)
+
+		print("initial error: {:f}".format(err[0,0]))
 
 		while num_iter < max_iter and abs(d_err) > min_d_err and np.max(J) > 0.0:
 
 			# calculate pose update using Gauss-Newton with the Cauchy M-Estimator
 			# still need to tune the estimator width parameter
-			W = self.GetCauchyWeights(vals, 0.2)
+			W = self.GetCauchyWeights(vals, 0.05)
+
+			#print('residual mean: {:f}   std dev: {:f}'.format(np.mean(vals),np.std(vals)))
 			J_t_W = np.dot(J.T,W)
 			delta_P = np.dot(np.linalg.inv(np.dot(J_t_W,J)),np.dot(J_t_W,vals))
 
@@ -74,9 +79,10 @@ class SDFScanMatcher:
 			#print(next_pose)
 			
 			vals,J,grads = self.GetResidualAndJacobian(scan, next_pose)
-			new_err = np.linalg.norm(vals**2)
-			d_err = err - new_err
-			err = new_err
+			#new_err = np.linalg.norm(vals**2)
+			new_err = np.dot(np.dot(vals.T,W),vals)
+			d_err = err - new_err[0,0]
+			err = new_err[0,0]
 
 			print("error: {:f} \n".format(err))
 
