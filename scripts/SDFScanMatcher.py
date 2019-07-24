@@ -52,11 +52,14 @@ class SDFScanMatcher:
 
 		while num_iter < max_iter and abs(d_err) > min_d_err and np.max(J) > 0.0:
 
-			#print(vals)
-			#print(J)
+			# calculate pose update using Gauss-Newton with the Cauchy M-Estimator
+			# still need to tune the estimator width parameter
+			W = self.GetCauchyWeights(vals, 0.2)
+			J_t_W = np.dot(J.T,W)
+			delta_P = np.dot(np.linalg.inv(np.dot(J_t_W,J)),np.dot(J_t_W,vals))
 
 			# calculate the Gauss-Newton pose update as x,y,gamma
-			delta_P = np.dot(np.linalg.inv(np.dot(J.T,J)),np.dot(J.T,vals))
+			#delta_P = np.dot(np.linalg.inv(np.dot(J.T,J)),np.dot(J.T,vals))
 
 			# convert to transformation matrix
 			delta_P_mat = np.array([[math.cos(delta_P[2]), -math.sin(delta_P[2]), delta_P[0]*self.map.disc],
@@ -82,6 +85,13 @@ class SDFScanMatcher:
 		# update the pose and map
 		self.pose = np.dot(self.pose,next_pose)
 		self.map.UpdateMap(scan,self.pose)
+
+	def GetCauchyWeights(self, residuals, a):
+		W = np.zeros((residuals.shape[0],residuals.shape[0]))
+		c = 1.0 / a**2
+		for i in range(residuals.shape[0]):
+			W[i,i] = 1.0 / (1.0 + residuals[i,0]**2 * c)
+		return W
 
 	# returns residual and jacobian for a given scan alignment
 	# params:
