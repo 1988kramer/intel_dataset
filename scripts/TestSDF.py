@@ -17,12 +17,12 @@ args = parser.parse_args()
 
 loader = DataLoader(args.laser_file, args.odometry_file)
 measurements = loader.measurements
-disc = 0.5
+disc = 0.25
 matcher = SDFScanMatcher(discretization=disc)
 '''
 matcher.AddScan(measurements[0].points)
 matcher.AddScan(measurements[1].points)
-#matcher.AddScan(measurements[2].points)
+matcher.AddScan(measurements[2].points)
 matcher.AddScan(measurements[34].points)
 res,J,grads = matcher.GetResidualAndJacobian(measurements[1].points,np.identity(3))
 #sdf = SDFMap([10,10])
@@ -46,8 +46,8 @@ for i in range(0,map_space_points.shape[0]):
 
 fig2 = plt.figure()
 plt.imshow(matcher.map.priorities, interpolation='none',vmin=0,vmax=10)
-	
 '''
+
 def animate(i):
 	global pose
 

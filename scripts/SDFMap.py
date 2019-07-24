@@ -30,7 +30,7 @@ class SDFMap:
 		self.disc = discretization
 		self.num_x_cells = int(size[0] / self.disc)
 		self.num_y_cells = int(size[1] / self.disc)
-		self.map = 0.001 * np.ones((self.num_x_cells,self.num_y_cells))
+		self.map = 0.1 * np.ones((self.num_x_cells,self.num_y_cells))
 		self.priorities = 100.0 * np.ones((self.num_x_cells,self.num_y_cells))
 		self.offsets = np.zeros(2)
 
@@ -106,11 +106,11 @@ class SDFMap:
 
 			for i in range(amount):
 				if direction < 0:
-					self.map = np.insert(self.map,0,0.001,axis=axis)
+					self.map = np.insert(self.map,0,0.1,axis=axis)
 					self.priorities = np.insert(self.priorities,0,100,axis=axis)
 					self.offsets[axis] += 1
 				else:
-					self.map = np.insert(self.map,self.map.shape[axis],0.001,axis=axis)
+					self.map = np.insert(self.map,self.map.shape[axis],0.1,axis=axis)
 					self.priorities = np.insert(self.priorities,self.priorities.shape[axis],100,axis=axis)
 
 
@@ -258,8 +258,8 @@ class SDFMap:
 		if len(points) == 1:
 			# try to find adjacent points
 			for neighbor in full_scan:
-				if (abs(neighbor[0] - points[0][0]) < self.disc and 
-					abs(neighbor[1] - points[0][1]) < self.disc and
+				if (abs(neighbor[0] - points[0][0]) < self.disc * 2.0 and 
+					abs(neighbor[1] - points[0][1]) < self.disc * 2.0 and
 					neighbor[0] != points[0][0] and neighbor[1] != points[0][1]):
 					using_adjacent = True
 					points.append(neighbor)

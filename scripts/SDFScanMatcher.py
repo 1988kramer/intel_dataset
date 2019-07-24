@@ -98,7 +98,7 @@ class SDFScanMatcher:
 			num_iter += 1
 
 		# update the pose and map
-		self.pose = np.dot(self.pose,est_pose)
+		self.pose = est_pose
 		self.map.UpdateMap(scan,self.pose)
 
 	def GetCauchyWeights(self, scan, residuals, a):
