@@ -30,7 +30,7 @@ class SDFMap:
 		self.disc = discretization
 		self.num_x_cells = int(size[0] / self.disc)
 		self.num_y_cells = int(size[1] / self.disc)
-		self.map = np.ones((self.num_x_cells,self.num_y_cells))
+		self.map = np.zeros((self.num_x_cells,self.num_y_cells))
 		self.priorities = 100.0 * np.ones((self.num_x_cells,self.num_y_cells))
 		self.offsets = np.zeros(2)
 
@@ -76,10 +76,12 @@ class SDFMap:
 					self.SetMapValue(vertex[0],vertex[1],new_distance)
 					self.SetPriority(vertex[0],vertex[1],new_priority)
 				# if update has same priority, average the measurements
+				'''
 				elif new_priority == old_priority:
 					old_distance = self.map[vertex[0],vertex[1]]
 					mean_distance = (new_distance + old_distance) / 2.0
 					self.SetMapValue(vertex[0],vertex[1],mean_distance)
+					'''
 				# if update has lower priority, discard the new measurement
 
 	# Expands the map if necessary to fit the given point
@@ -105,11 +107,11 @@ class SDFMap:
 
 			for i in range(amount):
 				if direction < 0:
-					self.map = np.insert(self.map,0,1,axis=axis)
+					self.map = np.insert(self.map,0,0,axis=axis)
 					self.priorities = np.insert(self.priorities,0,100,axis=axis)
 					self.offsets[axis] += 1
 				else:
-					self.map = np.insert(self.map,self.map.shape[axis],1,axis=axis)
+					self.map = np.insert(self.map,self.map.shape[axis],0,axis=axis)
 					self.priorities = np.insert(self.priorities,self.priorities.shape[axis],100,axis=axis)
 
 
@@ -180,7 +182,8 @@ class SDFMap:
 			
 			p = max((min((abs(x_min - vertex[0])),abs(x_max - vertex[0])),
 				min((abs(y_min - vertex[1])),(abs(y_max - vertex[1])))))
-			#p = math.sqrt(min(abs(x_min - vertex[0]),abs(x_max - vertex[0]))**2 + min(abs(y_min - vertex[1]),abs(y_max - vertex[1]))**2)
+			#p = max(0,min(min(abs(x_min-vertex[0]),abs(x_max-vertex[0])),
+			#	min(abs(y_min-vertex[1]),abs(y_max-vertex[1]))))
 
 			priorities.append(p)
 
@@ -295,8 +298,9 @@ class SDFMap:
 				for next_idx in range(point_idx + 1, len(points)):
 					if not grouped[next_idx]:
 						next_point = points[next_idx]
-						if (next_point[0] >= x_min and next_point[0] < x_max
-							and next_point[1] >= y_min and next_point[1] < y_max):
+						x,y = self.PointToMapCoordinates(next_point)
+						if (x >= x_min and x < x_max
+							and y >= y_min and y < y_max):
 							cur_group.append(next_point)
 							grouped[next_idx] = True
 
@@ -464,7 +468,8 @@ class SDFMap:
 			#print(p)
 			'''
 			v = np.array([p[1,1] - p[0,1], -p[1,0] + p[0,0]])
-			v = v / np.linalg.norm(v)
+			if np.linalg.norm(v) > 0.0:
+				v = v / np.linalg.norm(v)
 
 			dist = abs((p[1,0]-p[0,0])*(p[0,1]-d[1]) - (p[0,0]-d[0])*(p[1,1]-p[0,1]))/math.sqrt((p[1,0]-p[0,0])**2 + (p[1,1]-p[0,1])**2)
 
