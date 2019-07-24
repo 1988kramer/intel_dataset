@@ -35,7 +35,7 @@ class SDFScanMatcher:
 	#                     pose since the last scan
 	# - max_iter: int, maximum number of Gauss-Newton iterations to use
 	# - min_d_err: float, minimum change in error since last iteration to continue iterating
-	def AddScan(self, scan, pose_delta_guess=np.identity(3), max_iter=100, min_d_err=1.0):
+	def AddScan(self, scan, pose_delta_guess=np.identity(3), max_iter=100, min_d_err=1.0e-2):
 		
 		d_err = 1.0e4
 		num_iter = 0
@@ -46,7 +46,7 @@ class SDFScanMatcher:
 		vals,J,grads = self.GetResidualAndJacobian(scan, next_pose)
 
 		max_err = 1e-6
-		err = np.linalg.norm(vals)**2
+		err = np.linalg.norm(vals**2)
 
 		print("initial error: {:f}".format(err))
 
@@ -71,7 +71,7 @@ class SDFScanMatcher:
 			#print(next_pose)
 			
 			vals,J,grads = self.GetResidualAndJacobian(scan, next_pose)
-			new_err = np.linalg.norm(vals)**2
+			new_err = np.linalg.norm(vals**2)
 			d_err = err - new_err
 			err = new_err
 
