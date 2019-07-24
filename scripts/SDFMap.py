@@ -55,7 +55,7 @@ class SDFMap:
 		# generate map updates for each cell group
 		for group in point_groups:
 
-			A,b = self.LinearFit(group, pose)
+			A,b = self.LinearFit(global_scan, group, pose)
 
 			vertices = self.GetUpdateVertices(A, group[0])
 
@@ -253,21 +253,36 @@ class SDFMap:
 	# returns:
 	# - A: the slope of the fitted line
 	# - b: the y intercept of the fitted line in cells (not meters)
-	def LinearFit(self, points, pose):
+	def LinearFit(self, full_scan, points, pose):
+		using_adjacent = False
+		if len(points) == 1:
+			# try to find adjacent points
+			for neighbor in full_scan:
+				if (abs(neighbor[0] - points[0][0]) < self.disc and 
+					abs(neighbor[1] - points[0][1]) < self.disc and
+					neighbor[0] != points[0][0] and neighbor[1] != points[0][1]):
+					using_adjacent = True
+					points.append(neighbor)
+
 		if len(points) == 1:
 			# get perpendicular fit
 			A = -1.0 * (points[0][0] - pose[0][2]) / (points[0][1] - pose[1][2])
 			b = points[0][1] - (A * points[0][0])
+
 		else:
 			# get fit from orthogonal regression (thanks scipy!)
-			points = np.array(points)
-			data = scipy.odr.RealData(points[:,0],points[:,1])
+			points_arr = np.array(points)
+			data = scipy.odr.RealData(points_arr[:,0],points_arr[:,1])
 			odr = scipy.odr.ODR(data, scipy.odr.polynomial(1))
 			output = odr.run()
 			b = output.beta[0]
 			A = output.beta[1]
 
 		b /= self.disc
+
+		if using_adjacent:
+			while len(points) > 1.0:
+				del points[len(points)-1]
 
 		return A,b
 
