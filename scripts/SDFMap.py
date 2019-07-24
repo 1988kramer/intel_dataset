@@ -30,7 +30,7 @@ class SDFMap:
 		self.disc = discretization
 		self.num_x_cells = int(size[0] / self.disc)
 		self.num_y_cells = int(size[1] / self.disc)
-		self.map = np.zeros((self.num_x_cells,self.num_y_cells))
+		self.map = 0.001 * np.ones((self.num_x_cells,self.num_y_cells))
 		self.priorities = 100.0 * np.ones((self.num_x_cells,self.num_y_cells))
 		self.offsets = np.zeros(2)
 
@@ -106,11 +106,11 @@ class SDFMap:
 
 			for i in range(amount):
 				if direction < 0:
-					self.map = np.insert(self.map,0,0,axis=axis)
+					self.map = np.insert(self.map,0,0.001,axis=axis)
 					self.priorities = np.insert(self.priorities,0,100,axis=axis)
 					self.offsets[axis] += 1
 				else:
-					self.map = np.insert(self.map,self.map.shape[axis],0,axis=axis)
+					self.map = np.insert(self.map,self.map.shape[axis],0.001,axis=axis)
 					self.priorities = np.insert(self.priorities,self.priorities.shape[axis],100,axis=axis)
 
 
@@ -474,19 +474,26 @@ class SDFMap:
 			# the four points
 			p = np.zeros((2,2))
 			#print(pairs)
+			m_x_plus = np.zeros(2)
+			m_y_plus = np.zeros(2)
+			m_x_minus = np.zeros(2)
+			m_y_minus = np.zeros(2)
+			m_plus = np.zeros(2)
+			m_minus = np.zeros(2)
+
 			for pair_idx in range(2):
-				m_x_plus = m_points[pairs[pair_idx][0]][0]
-				m_y_plus = m_points[pairs[pair_idx][0]][1]
-				m_x_minus = m_points[pairs[pair_idx][1]][0]
-				m_y_minus = m_points[pairs[pair_idx][1]][1]
-				m_plus = m[pairs[pair_idx][0]]
-				m_minus = m[pairs[pair_idx][1]]
+				m_x_plus[pair_idx] = m_points[pairs[pair_idx][0]][0]
+				m_y_plus[pair_idx] = m_points[pairs[pair_idx][0]][1]
+				m_x_minus[pair_idx] = m_points[pairs[pair_idx][1]][0]
+				m_y_minus[pair_idx] = m_points[pairs[pair_idx][1]][1]
+				m_plus[pair_idx] = m[pairs[pair_idx][0]]
+				m_minus[pair_idx] = m[pairs[pair_idx][1]]
 				#print(str(m_plus) + ',' + str(m_minus))
-				if m_plus - m_minus == 0:
-					print('zero encountered, m+: {:f},  m-: {:f}'.format(m_plus,m_minus))
+				if m_plus[pair_idx] - m_minus[pair_idx] == 0:
+					print('zero encountered, m+: {:f},  m-: {:f}'.format(m_plus[pair_idx],m_minus[pair_idx]))
 					print('num neg: {:d}   sign changes: {:d}\n'.format(neg_count,sign_changes))
-				p[pair_idx,0] = m_x_plus+(m_plus/(m_plus-m_minus))*(m_x_minus-m_x_plus)
-				p[pair_idx,1] = m_y_plus+(m_plus/(m_plus-m_minus))*(m_y_minus-m_y_plus)
+				p[pair_idx,0] = m_x_plus[pair_idx]+(m_plus[pair_idx]/(m_plus[pair_idx]-m_minus[pair_idx]))*(m_x_minus[pair_idx]-m_x_plus[pair_idx])
+				p[pair_idx,1] = m_y_plus[pair_idx]+(m_plus[pair_idx]/(m_plus[pair_idx]-m_minus[pair_idx]))*(m_y_minus[pair_idx]-m_y_plus[pair_idx])
 
 			#print(p)
 			'''
@@ -509,27 +516,33 @@ class SDFMap:
 				if math.isnan(q[i]):
 					q[i] = p[0,i]
 			grad = q-d
-			value = np.linalg.norm(grad)
+			#value = np.linalg.norm(grad)
 			'''
 			
 			A = np.array([[p[1,0]-p[0,0], p[1,1]-p[0,1]],
 						  [p[0,1]-p[1,1], p[1,0]-p[0,0]]])
-			b = np.array([[-d[0]*(p[1,0]-p[0,0]) - d[1]*(p[1,1]-p[0,1])],
-						  [-p[0,1]*(p[1,0]-p[0,0]) + p[0,0]*(p[1,1]-p[0,1])]])
-			q = np.dot(np.linalg.inv(A), -1.0*b)
-			q = np.squeeze(q)
-			grad = q - d
-			#value = np.linalg.norm(grad)
-			
-			if np.linalg.norm(grad) > 2.0:
+
+			if np.linalg.matrix_rank(A) < 2:
+				print("singular matrix: \n{:s}".format(A))
+				print("matrix determinant: {:f}".format(np.linalg.det(A)))
 				print("\nx: {:f}   y: {:f}   residual: {:f}".format(d[0],d[1],value))
 				print("p0: {:s}   p1: {:s}".format(p[0,:],p[1,:]))
-				print("m+: {:f},{:f}: {:f}   m-: {:f},{:f}: {:f}".format(m_x_plus,m_y_plus,m_plus,m_x_minus,m_y_minus,m_minus))
+				print("m+: {:f},{:f}: {:f}   m-: {:f},{:f}: {:f}".format(m_x_plus[0],m_y_plus[0],m_plus[0],m_x_minus[0],m_y_minus[0],m_minus[0]))
+				print("m+: {:f},{:f}: {:f}   m-: {:f},{:f}: {:f}".format(m_x_plus[1],m_y_plus[1],m_plus[1],m_x_minus[1],m_y_minus[1],m_minus[1]))
 				print("gradient: {:s}".format(grad))
 				print("distance: {:f}".format(value))
 				#print("q: {:s}".format(q))
 				print("d: {:s}".format(d))
 				print("tx: {:f}   ty: {:f}".format(tx,ty))
 
+			b = np.array([[-d[0]*(p[1,0]-p[0,0]) - d[1]*(p[1,1]-p[0,1])],
+						  [-p[0,1]*(p[1,0]-p[0,0]) + p[0,0]*(p[1,1]-p[0,1])]])
+			q = np.dot(np.linalg.inv(A), -1.0*b)
+			q = np.squeeze(q)
+			grad = q - d
+			#value = np.linalg.norm(grad)
+				
+		if np.linalg.norm(grad) > 0:
+			grad = grad / np.linalg.norm(grad)
 		return value,grad
 
