@@ -48,6 +48,8 @@ class SDFScanMatcher:
 		max_err = 1e-6
 		err = np.linalg.norm(vals)**2
 
+		print("initial error: {:f}".format(err))
+
 		while num_iter < max_iter and abs(d_err) > min_d_err and np.max(J) > 0.0:
 
 			#print(vals)
