@@ -55,6 +55,8 @@ class SDFScanMatcher:
 
 		while num_iter < max_iter and abs(d_err) > min_d_err and np.max(J) > 0.0:
 
+			# NOTE: need to add mechanism to stop if next estimate is worse
+
 			# calculate pose update using Gauss-Newton with the Cauchy M-Estimator
 			# still need to tune the estimator width parameter
 			W = self.GetCauchyWeights(vals, 0.05)
